@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   IconActivity,
   IconAdjustmentsHorizontal,
@@ -122,9 +122,9 @@ function formatNumber(value) {
 
 function Logo({ compact = false }) {
   return (
-    <div className={`brand ${compact ? "brand--compact" : ""}`} aria-label="IS 智·简">
+    <div className={`brand ${compact ? "brand--compact" : ""}`} aria-label="IS 微智">
       <span className="brand__is">IS</span>
-      {!compact && <span className="brand__cn">智·简</span>}
+      {!compact && <span className="brand__cn">微智</span>}
     </div>
   );
 }
@@ -140,7 +140,6 @@ function Sidebar({ activeDomain, activePage, collapsed, mobileOpen, onNavigate, 
           <button className="icon-button sidebar__mobile-close" onClick={onClose} aria-label="关闭菜单"><IconX size={20} /></button>
         </div>
         <nav className="sidebar__nav" aria-label={`${activeDomain}主导航`} key={activeDomain}>
-          {!collapsed && <div className="sidebar-domain"><small>当前业务域</small><strong>{activeDomain}</strong></div>}
           <button className={`nav-row nav-row--home ${activePage === navigation.home.id ? "is-active" : ""}`} onClick={() => onNavigate(navigation.home.id)}>
             <IconHome size={18} />
             {!collapsed && <span>{navigation.home.label}</span>}
@@ -259,9 +258,9 @@ function TrendPanel({ period, onPeriod, onToast }) {
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={data} margin={{ top: 14, right: 4, left: -22, bottom: 0 }}>
             <CartesianGrid stroke="#edf1f8" vertical={false} />
-            <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: "#8792a8", fontSize: 11 }} />
-            <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: "#8792a8", fontSize: 11 }} />
-            <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} tick={{ fill: "#8792a8", fontSize: 11 }} />
+            <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: "#8792a8", fontSize: 13 }} />
+            <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: "#8792a8", fontSize: 13 }} />
+            <YAxis yAxisId="right" orientation="right" tickLine={false} axisLine={false} tickFormatter={(v) => `${v}%`} tick={{ fill: "#8792a8", fontSize: 13 }} />
             <Tooltip content={<ChartTooltip />} />
             <Bar yAxisId="left" name="会员增量" dataKey="members" fill="#3976f6" radius={[4, 4, 0, 0]} maxBarSize={20} />
             <Line yAxisId="right" name="环比增长率" type="monotone" dataKey="rate" stroke="#13bca5" strokeWidth={2.5} dot={{ r: 3, fill: "#fff", strokeWidth: 2 }} activeDot={{ r: 5 }} />
@@ -496,10 +495,96 @@ const insightCards = [
   { title: "会员活跃度下降", desc: "低活跃会员占比 26.32%，较上周期 ↑ 3.18%，建议触达唤醒。", tone: "purple", icon: IconTrendingDown },
 ];
 
+const DEFAULT_FAB_SIZE = { width: 118, height: 42 };
+
+function clampFabPosition(x, y, width = DEFAULT_FAB_SIZE.width, height = DEFAULT_FAB_SIZE.height) {
+  if (typeof window === "undefined") return { x, y };
+  return {
+    x: Math.min(Math.max(8, x), Math.max(8, window.innerWidth - width - 8)),
+    y: Math.min(Math.max(8, y), Math.max(8, window.innerHeight - height - 8)),
+  };
+}
+
+function getInitialFabPosition() {
+  if (typeof window === "undefined") return { x: 20, y: 20 };
+  return clampFabPosition(window.innerWidth - DEFAULT_FAB_SIZE.width - 20, window.innerHeight - DEFAULT_FAB_SIZE.height - 20);
+}
+
 function AIPanel({ open, onToggle, onToast, onAction }) {
   const [tab, setTab] = useState("洞察");
   const [prompt, setPrompt] = useState("");
-  if (!open) return <button className="ai-fab" onClick={onToggle}><IconSparkles size={21} /><span>AI 洞察</span></button>;
+  const [fabPosition, setFabPosition] = useState(getInitialFabPosition);
+  const dragState = useRef({ active: false, moved: false, suppressClick: false });
+  const moveFab = (clientX, clientY) => {
+    const state = dragState.current;
+    if (!state.active) return;
+    const dx = clientX - state.startX;
+    const dy = clientY - state.startY;
+    if (Math.abs(dx) + Math.abs(dy) > 4) state.moved = true;
+    setFabPosition(clampFabPosition(state.startLeft + dx, state.startTop + dy, state.width, state.height));
+  };
+  const finishFabDrag = () => {
+    const state = dragState.current;
+    if (!state.active) return;
+    dragState.current = { active: false, moved: false, suppressClick: state.moved };
+  };
+  useEffect(() => {
+    const handleResize = () => setFabPosition((position) => clampFabPosition(position.x, position.y));
+    const handleMouseMove = (event) => moveFab(event.clientX, event.clientY);
+    const handleMouseUp = () => finishFabDrag();
+    const handleTouchMove = (event) => {
+      const touch = event.touches[0];
+      if (!touch || !dragState.current.active) return;
+      event.preventDefault();
+      moveFab(touch.clientX, touch.clientY);
+    };
+    const handleTouchEnd = () => finishFabDrag();
+    window.addEventListener("resize", handleResize);
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    window.addEventListener("touchmove", handleTouchMove, { passive: false });
+    window.addEventListener("touchend", handleTouchEnd);
+    window.addEventListener("touchcancel", handleTouchEnd);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+      window.removeEventListener("touchmove", handleTouchMove);
+      window.removeEventListener("touchend", handleTouchEnd);
+      window.removeEventListener("touchcancel", handleTouchEnd);
+    };
+  }, []);
+  const startFabDrag = (clientX, clientY, rect) => {
+    dragState.current = {
+      active: true,
+      moved: false,
+      suppressClick: false,
+      startX: clientX,
+      startY: clientY,
+      startLeft: rect.left,
+      startTop: rect.top,
+      width: rect.width,
+      height: rect.height,
+    };
+  };
+  const handleFabMouseDown = (event) => {
+    if (event.button !== undefined && event.button !== 0) return;
+    startFabDrag(event.clientX, event.clientY, event.currentTarget.getBoundingClientRect());
+  };
+  const handleFabTouchStart = (event) => {
+    const touch = event.touches[0];
+    if (!touch) return;
+    startFabDrag(touch.clientX, touch.clientY, event.currentTarget.getBoundingClientRect());
+  };
+  const handleFabClick = (event) => {
+    if (dragState.current.suppressClick) {
+      dragState.current.suppressClick = false;
+      event.preventDefault();
+      return;
+    }
+    onToggle();
+  };
+  if (!open) return <button className="ai-fab" type="button" aria-label="打开 AI 洞察" style={{ left: `${fabPosition.x}px`, top: `${fabPosition.y}px` }} onMouseDown={handleFabMouseDown} onTouchStart={handleFabTouchStart} onClick={handleFabClick}><IconSparkles size={21} /><span>AI 洞察</span></button>;
   return (
     <aside className="ai-panel">
       <div className="ai-panel__head"><div><span className="ai-logo"><IconBrain size={21} /></span><strong>AI 助手</strong></div><div><button className="icon-button" onClick={onToggle}><IconChevronRight size={19} /></button></div></div>

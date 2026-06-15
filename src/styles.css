@@ -15,7 +15,7 @@
   --line: #e8edf5;
   --surface: #ffffff;
   --sidebar: 184px;
-  --ai: 272px;
+  --ai: 300px;
   --topbar: 64px;
   --shadow: 0 6px 20px rgba(46, 83, 142, 0.06);
 }
@@ -41,10 +41,6 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .sidebar__brand { height: var(--topbar); display: flex; align-items: center; justify-content: center; padding: 0 20px; border-bottom: 1px solid #f1f4f9; }
 .sidebar__mobile-close { display: none; }
 .sidebar__nav { flex: 1; min-height: 0; overflow-y: auto; padding: 12px 10px 24px; scrollbar-width: thin; }
-.sidebar-domain { margin: 0 4px 10px; padding: 9px 10px; border: 1px solid #e5ebf5; border-radius: 9px; background: #f7f9fd; animation: domain-nav-in .18s ease both; }
-.sidebar-domain small { display: block; color: #96a0b2; font-size: 8px; }
-.sidebar-domain strong { display: block; margin-top: 3px; color: #344159; font-size: 11px; }
-@keyframes domain-nav-in { from { opacity: .35; transform: translateY(-3px); } }
 .nav-group { margin-top: 14px; }
 .nav-group h3 { margin: 0 12px 7px; color: #9aa4b8; font-size: 12px; font-weight: 500; }
 .nav-row { position: relative; width: 100%; min-height: 38px; display: flex; align-items: center; gap: 11px; padding: 0 12px; border: 0; border-radius: 8px; background: transparent; color: #3a4558; font-size: 13px; text-align: left; cursor: pointer; transition: 0.18s ease; }
@@ -233,7 +229,8 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .ai-input input { width: 100%; min-width: 0; border: 0; outline: 0; font-size: 10px; }
 .ai-input button { width: 32px; height: 32px; display: grid; place-items: center; color: #fff; border: 0; border-radius: 8px; background: var(--primary); cursor: pointer; }
 .ai-disclaimer { display: block; padding: 8px 0 10px; color: #a1a9b8; font-size: 8px; text-align: center; }
-.ai-fab { position: fixed; right: 20px; bottom: 20px; z-index: 25; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; color: #fff; border: 0; border-radius: 22px; background: var(--primary); box-shadow: 0 10px 28px rgba(38,103,244,.28); cursor: pointer; }
+.ai-fab { position: fixed; z-index: 25; display: flex; align-items: center; gap: 8px; height: 42px; padding: 0 16px; color: #fff; border: 0; border-radius: 22px; background: var(--primary); box-shadow: 0 10px 28px rgba(38,103,244,.28); cursor: grab; touch-action: none; user-select: none; }
+.ai-fab:active { cursor: grabbing; }
 
 .members-page { min-height: 100%; }
 .page-title-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 3px 2px 12px; }
@@ -273,7 +270,7 @@ tbody tr:hover { background: #fbfdff; }
 .mobile-shade { display: none; }
 
 @media (max-width: 1280px) {
-  :root { --ai: 250px; --sidebar: 172px; }
+  :root { --ai: 275px; --sidebar: 172px; }
   .topbar__domains { gap: 15px; }
   .topbar__domains button { font-size: 12px; }
   .global-search { width: 220px; }
@@ -285,7 +282,7 @@ tbody tr:hover { background: #fbfdff; }
 
 @media (max-width: 1060px) {
   :root { --ai: 0px; }
-  .ai-panel { width: 300px; box-shadow: -18px 0 40px rgba(34,54,88,.15); }
+  .ai-panel { width: 330px; box-shadow: -18px 0 40px rgba(34,54,88,.15); }
   .main-area { right: 0; }
   .ai-open .main-area { right: 0; }
   .dashboard-grid--top, .dashboard-grid--middle { grid-template-columns: 1fr; }
@@ -478,4 +475,122 @@ tbody tr:hover { background: #fbfdff; }
   .drawer-metrics { grid-template-columns:1fr; }
   .rule-builder > div { grid-template-columns:1fr; }.rule-builder strong { text-align:left; }
   .migration-grid { grid-template-columns:1fr; }
+}
+
+/* Central workspace readability bump: keep navigation and AI panel unchanged. */
+.content-scroll { font-size: 14px; }
+.content-scroll .page-title-row h1,
+.content-scroll .workspace-title h1,
+.content-scroll .placeholder-page h1 { font-size: 22px; }
+.content-scroll .page-title-row p,
+.content-scroll .workspace-title p,
+.content-scroll .placeholder-page p,
+.content-scroll .domain-hero p,
+.content-scroll .product-hero p,
+.content-scroll .drawer-profile p { font-size: 13px; }
+.content-scroll .panel__head h2,
+.content-scroll .business-table-head h2,
+.content-scroll .segment-card h2,
+.content-scroll .scene-card h2,
+.content-scroll .domain-hero h2 { font-size: 16px; }
+.content-scroll .panel__head p,
+.content-scroll .business-table-head p,
+.content-scroll .record-count,
+.content-scroll .filter-field > span,
+.content-scroll .business-stats small,
+.content-scroll .metric-card__label,
+.content-scroll .drawer-metrics small { font-size: 12px; }
+.content-scroll .metric-card strong { font-size: 22px; }
+.content-scroll .business-stats strong { font-size: 21px; }
+.content-scroll .growth-metrics strong,
+.content-scroll .product-hero strong { font-size: 18px; }
+.content-scroll .table-toolbar strong,
+.content-scroll .drawer-profile strong,
+.content-scroll .drawer-metrics strong,
+.content-scroll .quadrant-box strong,
+.content-scroll .domain-module-grid h2 { font-size: 15px; }
+.content-scroll table,
+.content-scroll th,
+.content-scroll td,
+.content-scroll .source-table,
+.content-scroll .source-total,
+.content-scroll .segmented button,
+.content-scroll .quiet-button,
+.content-scroll .outline-button,
+.content-scroll .primary-button,
+.content-scroll .text-button,
+.content-scroll .toolbar-actions button,
+.content-scroll .table-link,
+.content-scroll .filter-field input,
+.content-scroll .filter-field select,
+.content-scroll .business-search input,
+.content-scroll .business-filters select,
+.content-scroll .business-date,
+.content-scroll .chart-tooltip,
+.content-scroll .detail-list > div,
+.content-scroll .rule-builder > div,
+.content-scroll .log-timeline strong,
+.content-scroll .linked-task strong,
+.content-scroll .check-list span,
+.content-scroll .scene-card__button,
+.content-scroll .domain-module-grid button,
+.content-scroll .ai-recommend-card button { font-size: 12px; }
+.content-scroll .metric-card small,
+.content-scroll .growth-metrics span,
+.content-scroll .trend-summary,
+.content-scroll .donut-center span,
+.content-scroll .legend-list > div,
+.content-scroll .mini-card ul,
+.content-scroll .platform-card ul,
+.content-scroll .age-labels,
+.content-scroll .occupation-row,
+.content-scroll .quadrant-totals,
+.content-scroll .quadrant-box div span,
+.content-scroll .quadrant-box p,
+.content-scroll .table-toolbar span,
+.content-scroll .member-cell small,
+.content-scroll .business-stats p,
+.content-scroll .business-pill,
+.content-scroll .level-pill,
+.content-scroll .status-pill,
+.content-scroll .tag-grid dt,
+.content-scroll .tag-grid article > small,
+.content-scroll .product-cell small,
+.content-scroll .order-status-line > div,
+.content-scroll .chart-legend,
+.content-scroll .channel-list > div,
+.content-scroll .ranking-list > div,
+.content-scroll .funnel > div,
+.content-scroll .ai-recommend-card p,
+.content-scroll .lifecycle-row,
+.content-scroll .migration-grid span,
+.content-scroll .simple-bars > div,
+.content-scroll .domain-module-grid p,
+.content-scroll .task-progress strong { font-size: 11px; }
+.content-scroll .mini-card h3,
+.content-scroll .business-empty strong,
+.content-scroll .detail-drawer__body h3,
+.content-scroll .tag-grid h3,
+.content-scroll .product-cell strong,
+.content-scroll .order-items strong,
+.content-scroll .insight-cards-row h2 { font-size: 14px; }
+.content-scroll .empty-state p,
+.content-scroll .business-empty p,
+.content-scroll .drawer-insight p,
+.content-scroll .drawer-copy,
+.content-scroll .segment-card > p,
+.content-scroll .scene-card > p { font-size: 12px; }
+
+@media (max-width: 600px) {
+  .content-scroll { font-size: 13px; }
+  .content-scroll .page-title-row h1,
+  .content-scroll .workspace-title h1,
+  .content-scroll .placeholder-page h1 { font-size: 20px; }
+  .content-scroll .panel__head h2,
+  .content-scroll .business-table-head h2,
+  .content-scroll .segment-card h2,
+  .content-scroll .scene-card h2,
+  .content-scroll .domain-hero h2 { font-size: 15px; }
+  .content-scroll .metric-card strong { font-size: 18px; }
+  .content-scroll .business-stats strong { font-size: 17px; }
 }
