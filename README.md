@@ -2,6 +2,8 @@
 
 一个基于 React 和 Vite 构建的会员数据与 SCRM 管理系统交互原型，采用七大业务域动态导航结构。
 
+在线预览：[https://kerwin021.github.io/member-crm-redesign/](https://kerwin021.github.io/member-crm-redesign/)
+
 ## 功能范围
 
 - 用户数据：会员档案、分群、标签、商品、订单与经营洞察
@@ -36,4 +38,3 @@ pnpm preview
 - Vite 6
 - Recharts
 - Tabler Icons
-
