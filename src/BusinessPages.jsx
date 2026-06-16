@@ -270,7 +270,6 @@ function ClawWorkspacePage({ activePage, onToast }) {
   const [answer, setAnswer] = useState("选择一个推荐问题，或直接输入会员经营问题，微智 Claw 会生成分析摘要和下一步动作。");
   const pageTitle = {
     "claw-insights": "本期洞察",
-    "claw-suggestions": "智能建议",
     "claw-qa": "智能问答",
     "claw-prompts": "推荐问题",
   }[activePage] || "本期洞察";
@@ -305,7 +304,7 @@ function ClawWorkspacePage({ activePage, onToast }) {
       </div>
       <StatCards items={[
         { label: "本期洞察", value: "18", note: "今日新增 4 条", icon: IconSparkles },
-        { label: "智能建议", value: "12", note: "可执行 9 条", icon: IconBolt, tone: "green" },
+        { label: "智能推荐", value: "12", note: "可执行 9 条", icon: IconBolt, tone: "green" },
         { label: "问答响应", value: "286", note: "平均 3.2 秒", icon: IconMessageCircle, tone: "orange" },
         { label: "推荐问题", value: "42", note: "复用率 68%", icon: IconTargetArrow, tone: "purple" },
       ]} />
@@ -327,21 +326,51 @@ function ClawWorkspacePage({ activePage, onToast }) {
         </div>
       )}
 
-      {activePage === "claw-suggestions" && (
-        <section className="panel claw-main-panel">
-          <div className="business-table-head"><div><h2>智能建议</h2><p>把 AI 助手的建议转成运营可执行动作</p></div><button className="quiet-button" onClick={() => onToast("已生成 3 条新建议")}>重新生成</button></div>
-          <div className="claw-suggestion-grid">
-            {clawSuggestionCards.map(({ title, desc, action, tone, icon: Icon }) => <article className={`claw-suggestion-card is-${tone}`} key={title}><span><Icon size={20}/></span><h3>{title}</h3><p>{desc}</p><button onClick={() => onToast(`${action}任务已创建`)}>{action}<IconChevronRight size={15}/></button></article>)}
-          </div>
-        </section>
-      )}
-
       {activePage === "claw-qa" && (
         <section className="panel claw-qa-panel">
-          <div className="qa-welcome"><IconMessageCircle size={38}/><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>
-          <div className="claw-answer"><strong>Claw 回答</strong><p>{answer}</p></div>
-          <div className="claw-input"><input value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") askClaw(); }} placeholder="请输入问题，获取数据洞察..." /><button onClick={() => askClaw()}><IconSend2 size={18}/></button></div>
-          <div className="claw-qa-prompts"><h3>你可以问我</h3><div className="prompt-chips">{clawPromptTemplates.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)}>{item.prompt}</button>)}</div></div>
+          <div className="claw-qa-top">
+            <div className="qa-welcome"><IconMessageCircle size={38}/><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>
+            <div className="claw-answer"><strong>Claw 回答</strong><p>{answer}</p></div>
+          </div>
+          <div className="claw-composer" aria-label="微智 Claw 智能问答输入框">
+            <textarea
+              value={prompt}
+              onChange={(event) => setPrompt(event.target.value)}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); askClaw(); } }}
+              placeholder="问问微智 Claw，例如：本月高价值会员有什么变化？"
+            />
+            <div className="claw-composer__footer">
+              <div className="claw-tool-pills">
+                {[
+                  ["数据洞察", IconChartBar, "本月新增会员来源占比如何？"],
+                  ["生成方案", IconSparkles, "帮我生成高价值会员提升方案"],
+                  ["创建任务", IconBolt, "把沉睡会员唤醒计划生成执行任务"],
+                  ["推荐问题", IconTargetArrow, "有哪些值得持续关注的会员问题？"],
+                ].map(([label, Icon, question]) => <button key={label} onClick={() => askClaw(question)}><Icon size={15}/>{label}</button>)}
+              </div>
+              <button className="claw-send-button" onClick={() => askClaw()}><IconSend2 size={18}/>发送</button>
+            </div>
+          </div>
+          <div className="claw-qa-layout">
+            <section className="claw-qa-prompts">
+              <div className="business-table-head"><div><h2>推荐问题</h2><p>参考豆包首页问题入口，点击卡片即可提问</p></div></div>
+              <div className="claw-prompt-cards">
+                {clawPromptTemplates.map((item) => (
+                  <button key={item.prompt} onClick={() => askClaw(item.prompt)}>
+                    <span>{item.scene}</span>
+                    <strong>{item.prompt}</strong>
+                    <small>{item.used} 次使用 · {item.owner}</small>
+                  </button>
+                ))}
+              </div>
+            </section>
+            <section className="claw-qa-recommend">
+              <div className="business-table-head"><div><h2>智能推荐</h2><p>原智能推荐页能力已并入问答页，可直接执行</p></div><button className="quiet-button" onClick={() => onToast("已生成 3 条新推荐")}>重新生成</button></div>
+              <div className="claw-suggestion-grid is-compact">
+                {clawSuggestionCards.map(({ title, desc, action, tone, icon: Icon }) => <article className={`claw-suggestion-card is-${tone}`} key={title}><span><Icon size={20}/></span><h3>{title}</h3><p>{desc}</p><button onClick={() => onToast(`${action}任务已创建`)}>{action}<IconChevronRight size={15}/></button></article>)}
+              </div>
+            </section>
+          </div>
         </section>
       )}
 

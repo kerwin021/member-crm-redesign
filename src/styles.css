@@ -256,17 +256,29 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-suggestion-card.is-blue > span { color: var(--primary); background: #edf4ff; }
 .claw-suggestion-card.is-purple > span { color: var(--purple); background: #f1eeff; }
 .claw-suggestion-card.is-orange > span { color: #ee8c24; background: #fff4e9; }
-.claw-qa-panel { display: grid; gap: 14px; align-content: start; }
+.claw-qa-panel { display: grid; gap: 16px; align-content: start; }
+.claw-qa-top { display: grid; grid-template-columns: minmax(260px, .62fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
 .claw-answer { padding: 16px; border: 1px solid #e2e9f5; border-radius: 13px; background: linear-gradient(135deg, #f8fbff, #fff); }
 .claw-answer strong { display: block; margin-bottom: 8px; color: #263148; font-size: 14px; }
 .claw-answer p { margin: 0; color: #637088; font-size: 13px; line-height: 1.8; }
-.claw-input { min-height: 52px; display: flex; align-items: center; gap: 8px; padding: 8px 8px 8px 14px; border: 1px solid #dce5f2; border-radius: 13px; background: #fff; }
-.claw-input:focus-within { border-color: #9dbbff; box-shadow: 0 0 0 3px rgba(38,103,244,.08); }
-.claw-input input { flex: 1; min-width: 0; border: 0; outline: 0; color: #3b465b; font-size: 13px; }
-.claw-input button { width: 38px; height: 38px; display: grid; place-items: center; color: #fff; border: 0; border-radius: 10px; background: var(--primary); cursor: pointer; }
-.claw-qa-prompts h3 { margin: 0 0 10px; font-size: 14px; }
-.claw-qa-prompts .prompt-chips { grid-template-columns: repeat(2, 1fr); }
-.claw-qa-prompts .prompt-chips button { min-height: 42px; font-size: 12px; }
+.claw-composer { display: grid; gap: 10px; padding: 14px; border: 1px solid #dfe7f3; border-radius: 24px; background: #fff; box-shadow: 0 14px 38px rgba(38,103,244,.08); }
+.claw-composer:focus-within { border-color: #9dbbff; box-shadow: 0 16px 42px rgba(38,103,244,.13), 0 0 0 4px rgba(38,103,244,.07); }
+.claw-composer textarea { width: 100%; min-height: 112px; max-height: 220px; padding: 2px 4px; color: #253149; border: 0; outline: 0; resize: vertical; background: transparent; font-size: 15px; line-height: 1.7; }
+.claw-composer__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid #eef2f7; }
+.claw-tool-pills { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+.claw-tool-pills button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; color: #4d5b74; border: 1px solid #e0e7f2; border-radius: 18px; background: #f8fbff; font-size: 12px; cursor: pointer; }
+.claw-tool-pills button:hover { color: var(--primary); border-color: #bad0fb; background: #edf4ff; }
+.claw-send-button { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 0 15px; color: #fff; border: 0; border-radius: 18px; background: var(--primary); cursor: pointer; box-shadow: 0 8px 18px rgba(38,103,244,.22); }
+.claw-qa-layout { display: grid; grid-template-columns: minmax(0, .92fr) minmax(340px, 1fr); gap: 14px; }
+.claw-qa-prompts, .claw-qa-recommend { min-width: 0; }
+.claw-prompt-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+.claw-prompt-cards button { min-height: 108px; display: grid; align-content: start; gap: 7px; padding: 14px; border: 1px solid #e2e9f5; border-radius: 16px; background: linear-gradient(145deg, #ffffff, #f8fbff); text-align: left; cursor: pointer; transition: .18s ease; }
+.claw-prompt-cards button:hover { transform: translateY(-1px); border-color: #b9cffb; box-shadow: 0 12px 26px rgba(38,103,244,.08); }
+.claw-prompt-cards span { width: max-content; padding: 3px 8px; color: var(--primary); border-radius: 12px; background: #edf4ff; font-size: 11px; }
+.claw-prompt-cards strong { color: #263148; font-size: 13px; line-height: 1.5; }
+.claw-prompt-cards small { color: #8893a6; font-size: 11px; }
+.claw-suggestion-grid.is-compact { grid-template-columns: 1fr; gap: 10px; }
+.claw-suggestion-grid.is-compact .claw-suggestion-card { min-height: 132px; }
 .claw-prompt-panel .prompt-chips { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
 .claw-prompt-panel .prompt-chips button { min-height: 42px; font-size: 12px; }
 
@@ -309,6 +321,7 @@ tbody tr:hover { background: #fbfdff; }
 
 @media (max-width: 1180px) {
   .claw-grid { grid-template-columns: 1fr; }
+  .claw-qa-top, .claw-qa-layout { grid-template-columns: 1fr; }
   .claw-insight-list, .claw-suggestion-grid { grid-template-columns: repeat(2, 1fr); }
   .claw-prompt-panel .prompt-chips { grid-template-columns: repeat(2, 1fr); }
 }
@@ -348,7 +361,10 @@ tbody tr:hover { background: #fbfdff; }
   .main-area, .sidebar-collapsed .main-area { left: 0; }
   .content-scroll { padding: 10px; }
   .claw-hero { grid-template-columns: 1fr; justify-items: start; }
-  .claw-insight-list, .claw-suggestion-grid, .claw-qa-prompts .prompt-chips, .claw-prompt-panel .prompt-chips { grid-template-columns: 1fr; }
+  .claw-insight-list, .claw-suggestion-grid, .claw-prompt-cards, .claw-prompt-panel .prompt-chips { grid-template-columns: 1fr; }
+  .claw-composer__footer { align-items: stretch; flex-direction: column; }
+  .claw-tool-pills { display: grid; grid-template-columns: 1fr 1fr; }
+  .claw-send-button { justify-content: center; }
   .portrait-grid { grid-template-columns: 1fr 1fr; }
   .quadrant-totals { display: none; }
   .quadrant-grid { margin-left: 0; }
