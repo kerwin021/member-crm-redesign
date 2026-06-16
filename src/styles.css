@@ -259,16 +259,34 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-qa-panel { display: grid; gap: 16px; align-content: start; }
 .claw-qa-top { display: grid; grid-template-columns: minmax(260px, .62fr) minmax(0, 1fr); gap: 14px; align-items: stretch; }
 .claw-answer { padding: 16px; border: 1px solid #e2e9f5; border-radius: 13px; background: linear-gradient(135deg, #f8fbff, #fff); }
+.claw-answer__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.claw-answer__meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.claw-answer__meta span { min-height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; color: #59677f; border: 1px solid #e3eaf5; border-radius: 14px; background: #fff; font-size: 11px; white-space: nowrap; }
 .claw-answer strong { display: block; margin-bottom: 8px; color: #263148; font-size: 14px; }
 .claw-answer p { margin: 0; color: #637088; font-size: 13px; line-height: 1.8; }
+.claw-answer__steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
+.claw-answer__steps span { min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 8px 9px; color: #3d6174; border: 1px solid #dbeaf0; border-radius: 9px; background: #f7fcff; font-size: 11px; line-height: 1.4; }
+.claw-answer__steps svg { flex: 0 0 auto; color: var(--green); }
+.claw-answer__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.claw-answer__actions button { min-height: 32px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px; color: var(--primary); border: 1px solid #c9d9fb; border-radius: 8px; background: #f6f9ff; font-size: 12px; cursor: pointer; }
+.claw-answer__actions button:hover { background: #edf4ff; }
 .claw-composer { display: grid; gap: 10px; padding: 14px; border: 1px solid #dfe7f3; border-radius: 24px; background: #fff; box-shadow: 0 14px 38px rgba(38,103,244,.08); }
 .claw-composer:focus-within { border-color: #9dbbff; box-shadow: 0 16px 42px rgba(38,103,244,.13), 0 0 0 4px rgba(38,103,244,.07); }
+.claw-composer__context { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-bottom: 10px; border-bottom: 1px solid #eef2f7; }
+.claw-composer__context > span { color: #7b879b; font-size: 12px; white-space: nowrap; }
+.claw-composer__context > div { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; min-width: 0; }
+.claw-composer__context button { min-height: 28px; padding: 0 10px; color: #657187; border: 1px solid #e0e7f2; border-radius: 14px; background: #fff; font-size: 12px; cursor: pointer; }
+.claw-composer__context button:hover, .claw-composer__context button.is-active { color: var(--primary); border-color: #adc5fa; background: #edf4ff; }
 .claw-composer textarea { width: 100%; min-height: 112px; max-height: 220px; padding: 2px 4px; color: #253149; border: 0; outline: 0; resize: vertical; background: transparent; font-size: 15px; line-height: 1.7; }
 .claw-composer__footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 10px; border-top: 1px solid #eef2f7; }
 .claw-tool-pills { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
 .claw-tool-pills button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; color: #4d5b74; border: 1px solid #e0e7f2; border-radius: 18px; background: #f8fbff; font-size: 12px; cursor: pointer; }
-.claw-tool-pills button:hover { color: var(--primary); border-color: #bad0fb; background: #edf4ff; }
+.claw-tool-pills button:hover, .claw-tool-pills button.is-active { color: var(--primary); border-color: #bad0fb; background: #edf4ff; }
 .claw-send-button { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 0 15px; color: #fff; border: 0; border-radius: 18px; background: var(--primary); cursor: pointer; box-shadow: 0 8px 18px rgba(38,103,244,.22); }
+.claw-followups { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
+.claw-followups > span { color: #7d899b; font-size: 12px; }
+.claw-followups button { min-height: 30px; padding: 0 10px; color: #4265a8; border: 1px dashed #cbd8f0; border-radius: 15px; background: #fbfdff; font-size: 12px; cursor: pointer; }
+.claw-followups button:hover { color: var(--primary); border-style: solid; background: #f1f6ff; }
 .claw-qa-layout { display: grid; grid-template-columns: minmax(0, .92fr) minmax(340px, 1fr); gap: 14px; }
 .claw-qa-prompts, .claw-qa-recommend { min-width: 0; }
 .claw-prompt-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
@@ -279,6 +297,9 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-prompt-cards small { color: #8893a6; font-size: 11px; }
 .claw-suggestion-grid.is-compact { grid-template-columns: 1fr; gap: 10px; }
 .claw-suggestion-grid.is-compact .claw-suggestion-card { min-height: 132px; }
+.claw-suggestion-card small { color: #8c97a8; font-size: 11px; }
+.claw-suggestion-card.is-done { border-color: #cbeeda; background: #fbfffd; }
+.claw-suggestion-card.is-done button { color: #128052; border-color: #c7ebd6; background: #effaf4; }
 .claw-prompt-panel .prompt-chips { grid-template-columns: repeat(4, 1fr); margin-top: 12px; }
 .claw-prompt-panel .prompt-chips button { min-height: 42px; font-size: 12px; }
 
@@ -322,6 +343,7 @@ tbody tr:hover { background: #fbfdff; }
 @media (max-width: 1180px) {
   .claw-grid { grid-template-columns: 1fr; }
   .claw-qa-top, .claw-qa-layout { grid-template-columns: 1fr; }
+  .claw-answer__steps { grid-template-columns: 1fr; }
   .claw-insight-list, .claw-suggestion-grid { grid-template-columns: repeat(2, 1fr); }
   .claw-prompt-panel .prompt-chips { grid-template-columns: repeat(2, 1fr); }
 }
@@ -362,6 +384,8 @@ tbody tr:hover { background: #fbfdff; }
   .content-scroll { padding: 10px; }
   .claw-hero { grid-template-columns: 1fr; justify-items: start; }
   .claw-insight-list, .claw-suggestion-grid, .claw-prompt-cards, .claw-prompt-panel .prompt-chips { grid-template-columns: 1fr; }
+  .claw-answer__head, .claw-composer__context { align-items: stretch; flex-direction: column; }
+  .claw-answer__meta, .claw-composer__context > div { justify-content: flex-start; }
   .claw-composer__footer { align-items: stretch; flex-direction: column; }
   .claw-tool-pills { display: grid; grid-template-columns: 1fr 1fr; }
   .claw-send-button { justify-content: center; }
@@ -387,6 +411,9 @@ tbody tr:hover { background: #fbfdff; }
   .claw-hero h2 { font-size: 18px; }
   .claw-hero p { font-size: 12px; }
   .claw-hero__logo { width: 54px; height: 54px; border-radius: 16px; }
+  .claw-tool-pills { grid-template-columns: 1fr; }
+  .claw-composer__context > div, .claw-followups { display: grid; grid-template-columns: 1fr 1fr; }
+  .claw-followups > span { grid-column: 1 / -1; }
   .trend-chart { height: 220px; }
   .trend-summary { gap: 12px; }
   .level-panel__content { grid-template-columns: 1fr; height: auto; }.donut-wrap { height: 190px; }.legend-list { padding: 0 12px 10px; }

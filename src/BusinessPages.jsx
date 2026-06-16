@@ -185,6 +185,22 @@ const clawPromptTemplates = [
   { scene: "渠道质量", prompt: "哪些渠道带来的会员质量最高？", owner: "营销运营组", used: 72 },
 ];
 
+const clawToolEntrances = [
+  { label: "数据洞察", icon: IconChartBar, question: "本月新增会员来源占比如何？", hint: "直接拉取关键指标和异常点" },
+  { label: "生成方案", icon: IconSparkles, question: "帮我生成高价值会员提升方案", hint: "输出可落地的运营动作" },
+  { label: "创建任务", icon: IconBolt, question: "把沉睡会员唤醒计划生成执行任务", hint: "拆成对象、触达和复盘节点" },
+  { label: "推荐问题", icon: IconTargetArrow, question: "有哪些值得持续关注的会员问题？", hint: "补全下一轮追问方向" },
+];
+
+const clawScopeOptions = ["近7天", "近30天", "本月", "高价值会员"];
+
+const clawFollowUps = [
+  "按门店拆一下表现",
+  "给出三条执行建议",
+  "转成运营任务清单",
+  "补充风险提醒",
+];
+
 const clawTrend = [
   { day: "06-09", insight: 68, suggestion: 42 },
   { day: "06-10", insight: 72, suggestion: 48 },
@@ -267,21 +283,38 @@ function EmptyFiltered() {
 
 function ClawWorkspacePage({ activePage, onToast }) {
   const [prompt, setPrompt] = useState("");
+  const [activeTool, setActiveTool] = useState(clawToolEntrances[0].label);
+  const [activeScope, setActiveScope] = useState("近30天");
   const [answer, setAnswer] = useState("选择一个推荐问题，或直接输入会员经营问题，微智 Claw 会生成分析摘要和下一步动作。");
+  const [answerSteps, setAnswerSteps] = useState(["识别问题范围", "匹配会员指标", "生成运营建议"]);
+  const [completedActions, setCompletedActions] = useState([]);
+  const [recommendRefresh, setRecommendRefresh] = useState(0);
   const pageTitle = {
     "claw-insights": "本期洞察",
     "claw-qa": "智能问答",
     "claw-prompts": "推荐问题",
   }[activePage] || "本期洞察";
-  const askClaw = (question = prompt) => {
+  const askClaw = (question = prompt, options = {}) => {
     const text = question.trim();
     if (!text) {
       onToast("请输入要分析的问题");
       return;
     }
-    setAnswer(`已围绕“${text}”完成分析：当前会员增长质量稳定，高价值会员转化还有提升空间，建议优先创建分层触达任务并追踪 7 日复购。`);
+    const nextTool = options.tool || activeTool;
+    const nextScope = options.scope || activeScope;
+    setActiveTool(nextTool);
+    setAnswer(`已按“${nextScope} · ${nextTool}”围绕“${text}”完成分析：当前会员增长质量稳定，小程序商城贡献最高，但高价值会员转化还有提升空间。建议优先锁定近 30 天高潜人群，创建分层触达任务，并在 7 日后复盘复购、客单价和权益领取变化。`);
+    setAnswerSteps([
+      `确认分析范围：${nextScope}`,
+      `输出${nextTool}摘要和关键指标`,
+      "沉淀下一步动作，可直接转成任务",
+    ]);
     setPrompt("");
-    onToast("微智 Claw 已生成回答");
+    onToast(options.toast || "微智 Claw 已生成回答");
+  };
+  const executeSuggestion = (title, action) => {
+    setCompletedActions((current) => current.includes(title) ? current : [...current, title]);
+    onToast(`${action}任务已创建`);
   };
   return (
     <section className="business-page claw-page">
@@ -330,9 +363,41 @@ function ClawWorkspacePage({ activePage, onToast }) {
         <section className="panel claw-qa-panel">
           <div className="claw-qa-top">
             <div className="qa-welcome"><IconMessageCircle size={38}/><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>
-            <div className="claw-answer"><strong>Claw 回答</strong><p>{answer}</p></div>
+            <div className="claw-answer">
+              <div className="claw-answer__head">
+                <strong>Claw 回答</strong>
+                <div className="claw-answer__meta">
+                  <span><IconSparkles size={14}/>{activeTool}</span>
+                  <span><IconDatabaseExport size={14}/>{activeScope}</span>
+                  <span><IconClock size={14}/>刚刚</span>
+                </div>
+              </div>
+              <p>{answer}</p>
+              <div className="claw-answer__steps">
+                {answerSteps.map((step) => <span key={step}><IconCheck size={14}/>{step}</span>)}
+              </div>
+              <div className="claw-answer__actions">
+                <button onClick={() => onToast("回答摘要已复制")}><IconClipboardData size={15}/>复制摘要</button>
+                <button onClick={() => onToast("已根据回答创建跟进任务")}><IconBolt size={15}/>创建任务</button>
+              </div>
+            </div>
           </div>
           <div className="claw-composer" aria-label="微智 Claw 智能问答输入框">
+            <div className="claw-composer__context">
+              <span>分析范围</span>
+              <div>
+                {clawScopeOptions.map((scope) => (
+                  <button
+                    className={activeScope === scope ? "is-active" : ""}
+                    key={scope}
+                    onClick={() => { setActiveScope(scope); onToast(`已切换到${scope}`); }}
+                    aria-pressed={activeScope === scope}
+                  >
+                    {scope}
+                  </button>
+                ))}
+              </div>
+            </div>
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
@@ -341,14 +406,23 @@ function ClawWorkspacePage({ activePage, onToast }) {
             />
             <div className="claw-composer__footer">
               <div className="claw-tool-pills">
-                {[
-                  ["数据洞察", IconChartBar, "本月新增会员来源占比如何？"],
-                  ["生成方案", IconSparkles, "帮我生成高价值会员提升方案"],
-                  ["创建任务", IconBolt, "把沉睡会员唤醒计划生成执行任务"],
-                  ["推荐问题", IconTargetArrow, "有哪些值得持续关注的会员问题？"],
-                ].map(([label, Icon, question]) => <button key={label} onClick={() => askClaw(question)}><Icon size={15}/>{label}</button>)}
+                {clawToolEntrances.map(({ label, icon: Icon, question, hint }) => (
+                  <button
+                    className={activeTool === label ? "is-active" : ""}
+                    key={label}
+                    onClick={() => askClaw(question, { tool: label, toast: `${label}已完成` })}
+                    title={hint}
+                    aria-pressed={activeTool === label}
+                  >
+                    <Icon size={15}/>{label}
+                  </button>
+                ))}
               </div>
               <button className="claw-send-button" onClick={() => askClaw()}><IconSend2 size={18}/>发送</button>
+            </div>
+            <div className="claw-followups">
+              <span>继续追问</span>
+              {clawFollowUps.map((question) => <button key={question} onClick={() => askClaw(question, { toast: "已生成追问回答" })}>{question}</button>)}
             </div>
           </div>
           <div className="claw-qa-layout">
@@ -365,9 +439,20 @@ function ClawWorkspacePage({ activePage, onToast }) {
               </div>
             </section>
             <section className="claw-qa-recommend">
-              <div className="business-table-head"><div><h2>智能推荐</h2><p>原智能推荐页能力已并入问答页，可直接执行</p></div><button className="quiet-button" onClick={() => onToast("已生成 3 条新推荐")}>重新生成</button></div>
+              <div className="business-table-head"><div><h2>智能推荐</h2><p>原智能推荐页能力已并入问答页，可直接执行</p></div><button className="quiet-button" onClick={() => { setRecommendRefresh((count) => count + 1); onToast("已生成 3 条新推荐"); }}>重新生成</button></div>
               <div className="claw-suggestion-grid is-compact">
-                {clawSuggestionCards.map(({ title, desc, action, tone, icon: Icon }) => <article className={`claw-suggestion-card is-${tone}`} key={title}><span><Icon size={20}/></span><h3>{title}</h3><p>{desc}</p><button onClick={() => onToast(`${action}任务已创建`)}>{action}<IconChevronRight size={15}/></button></article>)}
+                {clawSuggestionCards.map(({ title, desc, action, tone, icon: Icon }, index) => {
+                  const done = completedActions.includes(title);
+                  return (
+                    <article className={`claw-suggestion-card is-${tone} ${done ? "is-done" : ""}`} key={title}>
+                      <span><Icon size={20}/></span>
+                      <h3>{title}</h3>
+                      <p>{desc}</p>
+                      <small>推荐批次 #{recommendRefresh + 1} · 预计影响 {["4.8%", "6.2%", "9.1%"][index]}</small>
+                      <button onClick={() => executeSuggestion(title, action)}>{done ? <IconCheck size={15}/> : null}{done ? "已创建" : action}<IconChevronRight size={15}/></button>
+                    </article>
+                  );
+                })}
               </div>
             </section>
           </div>
