@@ -27,11 +27,19 @@ import {
   IconHistory,
   IconHeartHandshake,
   IconIdBadge2,
+  IconLink,
   IconLock,
+  IconMessageCircle,
+  IconMicrophone,
+  IconMoodSmile,
   IconPackage,
+  IconPaperclip,
+  IconPhoto,
+  IconPinned,
   IconPlus,
   IconRefresh,
   IconSearch,
+  IconSend2,
   IconSettings,
   IconSpeakerphone,
   IconShoppingBag,
@@ -141,6 +149,23 @@ const salesTrend = [
   { day: "06-15", sales: 176, orders: 2380, avg: 73.9 },
 ];
 
+const wechatConversations = [
+  { id: "wechat-pay", name: "微信支付", type: "聊天", date: "2026/05/13", unread: 1, preview: "关于支付通道和客户侧提示的咨询", tone: "green", icon: "wx", pinned: true },
+  { id: "yingyou", name: "营优教育", type: "聊天", date: "2026/05/13", unread: 1, preview: "客户询问系统登录微信和客户端关系", tone: "blue", icon: "text", pinned: true },
+  { id: "henan-tel", name: "河南电信", type: "聊天", date: "2026/05/11", unread: 0, preview: "5G 套餐活动接入和权益兑换确认", tone: "red", icon: "5G", pinned: false },
+  { id: "zz-card", name: "郑州市民卡", type: "群聊", date: "2026/05/08", unread: 0, preview: "社群活动物料已完成二次确认", tone: "orange", icon: "card", pinned: false },
+  { id: "tencent-service", name: "gh_402d777f217d", type: "公众号", date: "2026/05/06", unread: 0, preview: "腾讯客服 您好，您咨询的微信服务号...", tone: "gray", icon: "none", pinned: false },
+];
+
+const initialWechatMessages = [
+  { id: 1, side: "right", time: "05/14 15:32:18", text: "类似登电脑端微信一样" },
+  { id: 2, side: "left", author: "小柯", time: "05/14 15:34:32", text: "那就是在你们的系统里登录的微信咯？" },
+  { id: 3, side: "left", author: "小柯", time: "05/14 15:34:37", text: "不是官方的客户端？" },
+  { id: 4, side: "right", time: "05/14 15:35:59", text: "我们的系统肯定不是腾讯官方的，再说腾讯也不是做这样的系统。" },
+  { id: 5, side: "left", author: "小柯", time: "05/14 15:36:27", text: "那会被腾讯封号吧" },
+  { id: 6, side: "right", time: "05/14 15:37:02", text: "不会封，现在在用的数量将近3000，我们自己也在用" },
+];
+
 function PageHeader({ title, subtitle, primaryLabel, primaryIcon: PrimaryIcon = IconPlus, onPrimary, actions }) {
   return (
     <div className="workspace-title">
@@ -209,6 +234,110 @@ function ConfirmDialog({ open, title, text, onClose, onConfirm }) {
 
 function EmptyFiltered() {
   return <div className="business-empty"><IconFilter size={34} /><strong>没有符合条件的数据</strong><p>调整筛选条件后重新查询</p></div>;
+}
+
+function WechatAvatar({ item, compact = false }) {
+  const content = item.icon === "wx" ? <IconBrandWechat size={compact ? 18 : 23} /> : item.icon === "text" ? "营优" : item.icon;
+  return <span className={`wechat-avatar is-${item.tone} ${compact ? "is-compact" : ""}`}>{content}</span>;
+}
+
+function WechatChatPage({ onToast }) {
+  const [query, setQuery] = useState("");
+  const [activeTab, setActiveTab] = useState("聊天框");
+  const [activeType, setActiveType] = useState("聊天");
+  const [dayFilter, setDayFilter] = useState("今日");
+  const [selectedId, setSelectedId] = useState("yingyou");
+  const [pinned, setPinned] = useState(true);
+  const [draft, setDraft] = useState("");
+  const [messages, setMessages] = useState(initialWechatMessages);
+  const filteredConversations = wechatConversations.filter((item) => {
+    const typeMatched = activeTab === "未读" ? item.unread > 0 : activeTab === "通讯录" ? true : activeType === "全部" || item.type === activeType;
+    return typeMatched && `${item.name}${item.preview}`.includes(query);
+  });
+  const selected = wechatConversations.find((item) => item.id === selectedId) || wechatConversations[0];
+  const sendMessage = () => {
+    const text = draft.trim();
+    if (!text) {
+      onToast("请输入要发送的消息");
+      return;
+    }
+    setMessages((current) => [...current, { id: Date.now(), side: "right", time: "刚刚", text }]);
+    setDraft("");
+    onToast("微信消息已发送");
+  };
+  return (
+    <section className="wechat-chat-page" aria-label="微信聊天会话">
+      <aside className="wechat-session-list">
+        <div className="wechat-search-row">
+          <label><IconSearch size={16} /><input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索昵称、备注" /></label>
+          <button onClick={() => { setQuery(""); onToast("会话列表已刷新"); }} aria-label="刷新会话"><IconRefresh size={18} /></button>
+        </div>
+        <div className="wechat-main-tabs">
+          {["聊天框", "通讯录", "未读"].map((tab) => <button className={activeTab === tab ? "is-active" : ""} key={tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}
+        </div>
+        <div className="wechat-type-tabs">
+          {["聊天", "群聊", "公众号"].map((type) => <button className={activeType === type ? "is-active" : ""} key={type} onClick={() => { setActiveType(type); setActiveTab("聊天框"); }}>{type}{type === "聊天" ? "(686)" : type === "群聊" ? "(25)" : ""}</button>)}
+        </div>
+        <div className="wechat-conversation-scroll">
+          {filteredConversations.map((conversation) => (
+            <button className={`wechat-conversation ${selectedId === conversation.id ? "is-active" : ""}`} key={conversation.id} onClick={() => setSelectedId(conversation.id)}>
+              {!!conversation.unread && <span className="wechat-unread">{conversation.unread}</span>}
+              <WechatAvatar item={conversation} />
+              <span><strong>{conversation.name}</strong><small>{conversation.preview}</small></span>
+              <time>{conversation.date}</time>
+            </button>
+          ))}
+          {!filteredConversations.length && <div className="wechat-empty"><IconMessageCircle size={28} /><strong>暂无会话</strong><small>换个关键词或类型试试</small></div>}
+        </div>
+      </aside>
+      <main className="wechat-chat-workspace">
+        <header className="wechat-chat-toolbar">
+          <div className="wechat-chat-tools-left">
+            <WechatAvatar item={selected} compact />
+            <button className={`wechat-pin ${pinned ? "is-on" : ""}`} onClick={() => { setPinned((value) => !value); onToast(pinned ? "已取消置顶" : "已置顶当前会话"); }}><IconPinned size={14} />置顶</button>
+            <button className="wechat-tag-button" onClick={() => onToast("已打开客户标签")}>客户标签</button>
+            <div className="wechat-date-segment">{["今日", "昨日", "前天"].map((item) => <button className={dayFilter === item ? "is-active" : ""} key={item} onClick={() => setDayFilter(item)}>{item}</button>)}</div>
+            <span className="wechat-reply-stat">3分钟回复率：<strong>100%</strong></span>
+            <span className="wechat-reply-stat">平均回复时长：<strong>42.95 秒</strong></span>
+          </div>
+          <div className="wechat-chat-tools-right">
+            <button onClick={() => onToast("已打开会话质检视图")} aria-label="查看"><IconEye size={19} /></button>
+            <button onClick={() => onToast("已切换会话布局")} aria-label="布局"><IconDeviceMobile size={19} /></button>
+            <button onClick={() => onToast("已打开关联订单")} aria-label="订单"><IconBox size={19} /></button>
+          </div>
+        </header>
+        <section className="wechat-message-board">
+          {messages.map((message) => (
+            <div className={`wechat-message-row is-${message.side}`} key={message.id}>
+              {message.side === "left" && <span className="wechat-user-photo">小</span>}
+              <div className="wechat-message-body">
+                {message.side === "left" && <small>{message.author} {message.time}</small>}
+                {message.side === "right" && <small>{message.time}</small>}
+                <p>{message.text}</p>
+              </div>
+              {message.side === "right" && <span className="wechat-user-photo is-self">超</span>}
+            </div>
+          ))}
+        </section>
+        <footer className="wechat-composer">
+          <div className="wechat-composer-tools">
+            {[
+              [IconClipboardData, "快捷话术"],
+              [IconMoodSmile, "表情"],
+              [IconPhoto, "图片"],
+              [IconMicrophone, "语音"],
+              [IconDeviceMobile, "视频"],
+              [IconPaperclip, "文件"],
+              [IconLink, "链接"],
+              [IconSparkles, "AI 改写"],
+            ].map(([Icon, label]) => <button key={label} onClick={() => onToast(`${label}面板已打开`)} title={label}><Icon size={18} /></button>)}
+          </div>
+          <textarea value={draft} onChange={(event) => setDraft(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.ctrlKey && !event.shiftKey) { event.preventDefault(); sendMessage(); } }} placeholder="输入消息" />
+          <div className="wechat-send-row"><span>Ctrl+Enter 可换行</span><button onClick={sendMessage}><IconSend2 size={16} />发送(Enter)</button></div>
+        </footer>
+      </main>
+    </section>
+  );
 }
 
 function HighValuePage({ onToast, onAction }) {
@@ -396,6 +525,7 @@ function DomainFeaturePage({ pageId, onToast }) {
 export function BusinessPageRouter({ activePage, onToast, onAction }) {
   const props = { onToast, onAction };
   if (domainConfigs[activePage]) return <DomainOverviewPage pageId={activePage} onToast={onToast} />;
+  if (activePage === "wechat-chat") return <WechatChatPage onToast={onToast} />;
   if (FEATURE_PAGE_CONFIG[activePage]) return <DomainFeaturePage key={activePage} pageId={activePage} onToast={onToast} />;
   switch (activePage) {
     case "high-value": return <HighValuePage {...props} />;

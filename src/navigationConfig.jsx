@@ -2,6 +2,7 @@ import {
   IconActivity,
   IconAdjustmentsHorizontal,
   IconBolt,
+  IconBrandWechat,
   IconBrain,
   IconBuildingStore,
   IconChartBar,
@@ -65,6 +66,19 @@ export const DOMAIN_NAVIGATION = {
           item("fans", "粉丝洞察", IconUsersGroup, "", "", [], true),
           item("member-insight", "会员洞察", IconBrain, "", "", [], true),
           item("sales-insight", "销售洞察", IconChartBar, "", "", [], true),
+        ],
+      },
+    ],
+  },
+  微信管理: {
+    home: { id: "wechat-chat", label: "聊天会话" },
+    groups: [
+      {
+        label: "微信运营",
+        items: [
+          item("wechat-community", "社群营销", IconUsersGroup, "运营微信群、社群活动、成员标签和群发任务", "新建社群任务", ["新品体验群运营", "门店会员群激活", "沉默群成员唤醒"]),
+          item("wechat-moments", "朋友圈", IconBrandWechat, "管理企业微信朋友圈内容、发布计划和互动数据", "新建朋友圈", ["夏日新品种草", "会员日福利预告", "门店早餐搭配"]),
+          item("wechat-auto-reply", "自动回复", IconMessageCircle, "配置关键词、欢迎语和客服自动回复规则", "新建回复规则", ["售后咨询回复", "优惠券关键词回复", "营业时间问答"]),
         ],
       },
     ],
