@@ -36,6 +36,19 @@ const item = (id, label, icon, description, action, samples, expandable = false)
 });
 
 export const DOMAIN_NAVIGATION = {
+  "微智 Claw": {
+    home: { id: "claw-insights", label: "本期洞察" },
+    groups: [
+      {
+        label: "AI 助手",
+        items: [
+          item("claw-suggestions", "智能建议", IconBolt, "基于会员经营数据生成可执行的运营建议", "生成建议", ["针对重要发展会员", "优化会员等级权益", "沉睡会员唤醒计划"]),
+          item("claw-qa", "智能问答", IconMessageCircle, "用自然语言追问会员增长、留存、价值和渠道表现", "开始问答", ["本月新增会员来源占比如何？", "近 7 天新增趋势怎么样？", "高价值会员的消费特征是什么？"]),
+          item("claw-prompts", "推荐问题", IconTargetArrow, "沉淀常用分析问题和业务场景提问模板", "新增问题", ["会员增长复盘", "高价值人群画像", "渠道质量对比"]),
+        ],
+      },
+    ],
+  },
   用户数据: {
     home: { id: "dashboard", label: "主页" },
     groups: [

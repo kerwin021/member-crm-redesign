@@ -166,6 +166,35 @@ const initialWechatMessages = [
   { id: 6, side: "right", time: "05/14 15:37:02", text: "不会封，现在在用的数量将近3000，我们自己也在用" },
 ];
 
+const clawInsightCards = [
+  { title: "新增趋势上升", desc: "本月新增会员 6,782 人，较上月 ↑ 12.31%，主要增长来自小程序商城。", tone: "green", icon: IconArrowUpRight },
+  { title: "高价值会员占比偏低", desc: "高价值会员占 18.62%，低于行业均值 25%，建议加强会员分层运营。", tone: "orange", icon: IconTargetArrow },
+  { title: "会员活跃度下降", desc: "低活跃会员占比 26.32%，较上周期 ↑ 3.18%，建议触达唤醒。", tone: "purple", icon: IconActivity },
+];
+
+const clawSuggestionCards = [
+  { title: "针对重要发展会员", desc: "推送成长型会员礼包，预计可提升银卡到金卡升级率 4.8%。", action: "发放优惠券", tone: "blue", icon: IconSparkles },
+  { title: "优化会员等级权益", desc: "补强银卡 / 金卡权益激励，降低会员停留在低等级的时间。", action: "去配置", tone: "purple", icon: IconHeartHandshake },
+  { title: "沉睡会员唤醒计划", desc: "按最后活跃时间和历史客单价分层触达，优先召回中高价值人群。", action: "创建分群", tone: "orange", icon: IconUsersGroup },
+];
+
+const clawPromptTemplates = [
+  { scene: "增长复盘", prompt: "本月新增会员来源占比如何？", owner: "会员运营组", used: 128 },
+  { scene: "趋势追踪", prompt: "近 7 天新增趋势怎么样？", owner: "超级管理员", used: 96 },
+  { scene: "价值洞察", prompt: "高价值会员的消费特征是什么？", owner: "数据分析组", used: 84 },
+  { scene: "渠道质量", prompt: "哪些渠道带来的会员质量最高？", owner: "营销运营组", used: 72 },
+];
+
+const clawTrend = [
+  { day: "06-09", insight: 68, suggestion: 42 },
+  { day: "06-10", insight: 72, suggestion: 48 },
+  { day: "06-11", insight: 69, suggestion: 46 },
+  { day: "06-12", insight: 78, suggestion: 52 },
+  { day: "06-13", insight: 86, suggestion: 58 },
+  { day: "06-14", insight: 82, suggestion: 55 },
+  { day: "06-15", insight: 91, suggestion: 63 },
+];
+
 function PageHeader({ title, subtitle, primaryLabel, primaryIcon: PrimaryIcon = IconPlus, onPrimary, actions }) {
   return (
     <div className="workspace-title">
@@ -234,6 +263,103 @@ function ConfirmDialog({ open, title, text, onClose, onConfirm }) {
 
 function EmptyFiltered() {
   return <div className="business-empty"><IconFilter size={34} /><strong>没有符合条件的数据</strong><p>调整筛选条件后重新查询</p></div>;
+}
+
+function ClawWorkspacePage({ activePage, onToast }) {
+  const [prompt, setPrompt] = useState("");
+  const [answer, setAnswer] = useState("选择一个推荐问题，或直接输入会员经营问题，微智 Claw 会生成分析摘要和下一步动作。");
+  const pageTitle = {
+    "claw-insights": "本期洞察",
+    "claw-suggestions": "智能建议",
+    "claw-qa": "智能问答",
+    "claw-prompts": "推荐问题",
+  }[activePage] || "本期洞察";
+  const askClaw = (question = prompt) => {
+    const text = question.trim();
+    if (!text) {
+      onToast("请输入要分析的问题");
+      return;
+    }
+    setAnswer(`已围绕“${text}”完成分析：当前会员增长质量稳定，高价值会员转化还有提升空间，建议优先创建分层触达任务并追踪 7 日复购。`);
+    setPrompt("");
+    onToast("微智 Claw 已生成回答");
+  };
+  return (
+    <section className="business-page claw-page">
+      <PageHeader
+        title={`微智 Claw · ${pageTitle}`}
+        subtitle="参考右侧 AI 助手能力沉淀的独立 AI 经营工作台"
+        primaryLabel={activePage === "claw-prompts" ? "新增问题" : activePage === "claw-qa" ? "开始问答" : "生成洞察"}
+        primaryIcon={IconSparkles}
+        onPrimary={() => onToast(`${pageTitle}已准备就绪`)}
+        actions={<button className="outline-button" onClick={() => onToast("微智 Claw 数据已刷新")}><IconRefresh size={16}/>刷新数据</button>}
+      />
+      <div className="claw-hero panel">
+        <span className="claw-hero__logo"><IconSparkles size={30}/></span>
+        <div>
+          <strong>微智 Claw</strong>
+          <h2>把右侧 AI 助手沉淀成可操作的业务域</h2>
+          <p>洞察、建议、问答和推荐问题会在这里形成独立工作流，方便运营团队进入、复用和执行。</p>
+        </div>
+        <button className="primary-button" onClick={() => askClaw("本周会员经营最值得关注的问题是什么？")}>快速分析</button>
+      </div>
+      <StatCards items={[
+        { label: "本期洞察", value: "18", note: "今日新增 4 条", icon: IconSparkles },
+        { label: "智能建议", value: "12", note: "可执行 9 条", icon: IconBolt, tone: "green" },
+        { label: "问答响应", value: "286", note: "平均 3.2 秒", icon: IconMessageCircle, tone: "orange" },
+        { label: "推荐问题", value: "42", note: "复用率 68%", icon: IconTargetArrow, tone: "purple" },
+      ]} />
+
+      {activePage === "claw-insights" && (
+        <div className="claw-grid">
+          <section className="panel claw-main-panel">
+            <div className="business-table-head"><div><h2>本期洞察</h2><p>与右侧 AI 助手的洞察卡保持一致，并扩展为页面级分析</p></div></div>
+            <div className="claw-insight-list">
+              {clawInsightCards.map(({ title, desc, tone, icon: Icon }) => <article className={`insight-card is-${tone}`} key={title}><span><Icon size={18}/></span><div><strong>{title}</strong><p>{desc}</p></div></article>)}
+            </div>
+          </section>
+          <section className="panel claw-chart-panel">
+            <div className="business-table-head"><div><h2>AI 使用趋势</h2><p>洞察生成与建议采纳变化</p></div></div>
+            <div className="claw-chart">
+              <ResponsiveContainer width="100%" height="100%"><LineChart data={clawTrend}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Line name="洞察" dataKey="insight" stroke="#2869f6" strokeWidth={3}/><Line name="建议" dataKey="suggestion" stroke="#13bda5" strokeWidth={3}/></LineChart></ResponsiveContainer>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {activePage === "claw-suggestions" && (
+        <section className="panel claw-main-panel">
+          <div className="business-table-head"><div><h2>智能建议</h2><p>把 AI 助手的建议转成运营可执行动作</p></div><button className="quiet-button" onClick={() => onToast("已生成 3 条新建议")}>重新生成</button></div>
+          <div className="claw-suggestion-grid">
+            {clawSuggestionCards.map(({ title, desc, action, tone, icon: Icon }) => <article className={`claw-suggestion-card is-${tone}`} key={title}><span><Icon size={20}/></span><h3>{title}</h3><p>{desc}</p><button onClick={() => onToast(`${action}任务已创建`)}>{action}<IconChevronRight size={15}/></button></article>)}
+          </div>
+        </section>
+      )}
+
+      {activePage === "claw-qa" && (
+        <section className="panel claw-qa-panel">
+          <div className="qa-welcome"><IconMessageCircle size={38}/><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>
+          <div className="claw-answer"><strong>Claw 回答</strong><p>{answer}</p></div>
+          <div className="claw-input"><input value={prompt} onChange={(event) => setPrompt(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") askClaw(); }} placeholder="请输入问题，获取数据洞察..." /><button onClick={() => askClaw()}><IconSend2 size={18}/></button></div>
+          <div className="claw-qa-prompts"><h3>你可以问我</h3><div className="prompt-chips">{clawPromptTemplates.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)}>{item.prompt}</button>)}</div></div>
+        </section>
+      )}
+
+      {activePage === "claw-prompts" && (
+        <section className="panel business-table-card">
+          <div className="business-table-head"><div><h2>推荐问题</h2><p>沉淀右侧 AI 助手里的高频问题，点击即可带入问答</p></div><span className="record-count">共 {clawPromptTemplates.length} 条</span></div>
+          <div className="table-scroll"><table><thead><tr><th>场景</th><th>推荐问题</th><th>维护人</th><th>使用次数</th><th>操作</th></tr></thead><tbody>{clawPromptTemplates.map((item) => <tr key={item.prompt}><td>{item.scene}</td><td><strong>{item.prompt}</strong></td><td>{item.owner}</td><td>{item.used}</td><td><button className="table-link" onClick={() => askClaw(item.prompt)}>立即提问</button></td></tr>)}</tbody></table></div>
+        </section>
+      )}
+
+      {activePage !== "claw-qa" && (
+        <section className="panel claw-prompt-panel">
+          <div className="business-table-head"><div><h2>你可以问我</h2><p>与右侧 AI 助手一致的推荐问题入口</p></div></div>
+          <div className="prompt-chips">{clawPromptTemplates.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)}>{item.prompt}</button>)}</div>
+        </section>
+      )}
+    </section>
+  );
 }
 
 function WechatAvatar({ item, compact = false }) {
@@ -525,6 +651,7 @@ function DomainFeaturePage({ pageId, onToast }) {
 export function BusinessPageRouter({ activePage, onToast, onAction }) {
   const props = { onToast, onAction };
   if (domainConfigs[activePage]) return <DomainOverviewPage pageId={activePage} onToast={onToast} />;
+  if (activePage.startsWith("claw-")) return <ClawWorkspacePage activePage={activePage} onToast={onToast} />;
   if (activePage === "wechat-chat") return <WechatChatPage onToast={onToast} />;
   if (FEATURE_PAGE_CONFIG[activePage]) return <DomainFeaturePage key={activePage} pageId={activePage} onToast={onToast} />;
   switch (activePage) {
