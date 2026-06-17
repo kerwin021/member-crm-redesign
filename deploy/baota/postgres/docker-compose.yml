@@ -1,0 +1,25 @@
+services:
+  member-crm-postgres:
+    image: postgres:16-alpine
+    container_name: member-crm-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: member_crm
+      POSTGRES_USER: member_crm_app
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      TZ: Asia/Shanghai
+      PGTZ: Asia/Shanghai
+    ports:
+      - "${POSTGRES_BIND_HOST:-127.0.0.1}:${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - member_crm_pgdata:/var/lib/postgresql/data
+      - ./init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U member_crm_app -d member_crm"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+volumes:
+  member_crm_pgdata:

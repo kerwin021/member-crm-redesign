@@ -1,6 +1,6 @@
 # IS 微智会员 SCRM
 
-一个基于 React 和 Vite 构建的会员数据与 SCRM 管理系统交互原型，采用九大业务域动态导航结构。
+一个基于 React 和 Vite 构建的会员数据与 SCRM 管理系统交互原型，采用七大业务域动态导航结构。
 
 在线预览：[https://kerwin021.github.io/member-crm-redesign/](https://kerwin021.github.io/member-crm-redesign/)
 
@@ -12,9 +12,7 @@
 - 营销管理：营销活动、自动化营销、客户旅程、优惠券与触达任务
 - 忠诚度管理：会员等级、成长值、权益、积分规则与积分商城
 - 社交 SCRM：客户联系人、客户群、欢迎语、群发任务与会话记录
-- 企业管理：组织、门店、员工、角色权限、审批与操作审计
-- 配置管理：系统参数、消息模板、数据字典、任务调度与安全设置
-- 开发平台：应用、API 文档、接口权限、Webhook、事件订阅与调用日志
+- 配置管理：组织、门店、员工、角色权限、审批、系统参数、消息模板、数据字典、任务调度、安全设置、应用、API 文档、接口权限、Webhook、事件订阅与调用日志
 
 所有菜单入口均包含可操作的筛选、创建、状态切换、详情抽屉和执行反馈，并适配桌面端与移动端。
 
@@ -47,6 +45,14 @@ pnpm dev
 pnpm build
 pnpm preview
 ```
+
+## 数据库与宝塔部署
+
+PostgreSQL 数据库设计与宝塔部署文件已放在：
+
+- `database/postgres/`
+- `deploy/baota/postgres/`
+- `docs/baota-postgres-deployment.md`
 
 ## 技术栈
 
