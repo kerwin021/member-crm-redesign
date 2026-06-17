@@ -4,8 +4,8 @@
 
 - Repository: https://github.com/kerwin021/member-crm-redesign
 - Live preview: https://kerwin021.github.io/member-crm-redesign/
-- Latest main commit at handoff: `5cf5328`
-- Latest deployed gh-pages commit at handoff: `abe930a`
+- Latest main commit before navigation merge: `985f87b`
+- Latest deployed gh-pages commit before navigation merge: `bcd6d51`
 
 ## Current State
 
@@ -19,9 +19,9 @@ Implemented business domains:
 - 营销管理
 - 忠诚度管理
 - 社交SCRM
-- 企业管理
 - 配置管理
-- 开发平台
+
+Note: 企业管理 and 开发平台 have been merged into 配置管理. Their left-side menus now live under 配置管理 as 组织管理、权限与审批、应用与接口、事件与监控.
 
 Recent completed work:
 
@@ -33,6 +33,7 @@ Recent completed work:
 - Reworked 聊天会话 as a WeChat-style customer service workspace.
 - Increased AI assistant width, improved content font sizing, and made the AI insight floating button draggable.
 - Brand text has been unified to 微智.
+- Merged 企业管理 and 开发平台 into 配置管理 to reduce top-level business domains.
 
 ## How To Continue On Another Codex Device
 
@@ -61,7 +62,7 @@ pnpm preview
 
 ```text
 继续完善 member-crm-redesign 项目。当前目标是提升微智 Claw 的智能问答体验：
-1. 保持顶部九大业务域和动态左侧菜单不变。
+1. 保持顶部七个业务域和动态左侧菜单不变；企业管理、开发平台能力已合并到配置管理。
 2. 重点优化 微智 Claw -> 智能问答 页面。
 3. 参考豆包的输入框体验，继续增强输入区的视觉层级、推荐问题入口和智能推荐动作。
 4. 所有可见入口必须可点击、有反馈，并兼容桌面和移动端。
@@ -73,6 +74,7 @@ pnpm preview
 
 - Production build passes.
 - Top business domain order starts with 微智 Claw, then 用户数据.
+- Top business domains no longer include 企业管理 or 开发平台; those menus appear under 配置管理.
 - 微智 Claw left menu only includes 本期洞察、智能问答、推荐问题.
 - 智能问答 page includes:
   - Large multiline composer.
@@ -82,4 +84,3 @@ pnpm preview
   - Send interaction with generated answer and cleared input.
 - Desktop and mobile layouts remain usable.
 - Browser console has no relevant errors.
-

@@ -6,4 +6,4 @@ Before making substantial visual changes, use the Product Design plugin's `get-c
 
 When implementing from a selected generated mock, treat that image as the source of truth for layout, component anatomy, density, spacing, color, typography, visible content, and hierarchy.
 
-The nine top business domains use independent left navigation trees. Switching domains must replace the sidebar menu and open that domain's default page; every visible menu entry must open a populated, interactive page.
+The seven top business domains use independent left navigation trees. 企业管理 and 开发平台 are merged into 配置管理; their organization, permission, app, API, webhook, event, and log menus live under 配置管理. Switching domains must replace the sidebar menu and open that domain's default page; every visible menu entry must open a populated, interactive page.

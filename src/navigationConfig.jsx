@@ -158,27 +158,6 @@ export const DOMAIN_NAVIGATION = {
       },
     ],
   },
-  企业管理: {
-    home: { id: "domain-enterprise", label: "企业概览" },
-    groups: [
-      {
-        label: "组织管理",
-        items: [
-          item("enterprise-org", "组织架构", IconBuildingStore, "维护总部、区域、城市、门店和部门层级", "新增组织", ["一鸣食品总部", "浙北运营区域", "杭州西湖门店组"]),
-          item("enterprise-stores", "门店管理", IconBuildingStore, "维护门店资料、营业状态和服务范围", "新增门店", ["杭州西湖店", "宁波鄞州店", "温州鹿城店"]),
-          item("enterprise-employees", "员工管理", IconIdBadge2, "管理员工账号、岗位、归属门店和在职状态", "新增员工", ["区域运营经理", "门店店长", "会员运营专员"]),
-        ],
-      },
-      {
-        label: "权限与审批",
-        items: [
-          item("enterprise-roles", "角色权限", IconLock, "按角色配置页面、数据范围和业务操作权限", "新建角色", ["超级管理员", "区域运营", "门店店长"]),
-          item("enterprise-approvals", "审批中心", IconClipboardData, "处理权限、营销活动和数据导出的审批流程", "发起审批", ["优惠券活动审批", "员工数据权限申请", "会员数据导出审批"]),
-          item("enterprise-audit", "操作审计", IconFileText, "追踪重要配置、数据和权限的操作记录", "导出审计", ["权限配置变更", "会员数据导出", "系统参数修改"]),
-        ],
-      },
-    ],
-  },
   配置管理: {
     home: { id: "domain-config", label: "配置概览" },
     groups: [
@@ -198,11 +177,22 @@ export const DOMAIN_NAVIGATION = {
           item("config-security", "安全设置", IconLock, "配置登录安全、密码策略和数据访问限制", "修改策略", ["管理员密码策略", "异地登录保护", "敏感数据访问控制"]),
         ],
       },
-    ],
-  },
-  开发平台: {
-    home: { id: "domain-dev", label: "开发概览" },
-    groups: [
+      {
+        label: "组织管理",
+        items: [
+          item("enterprise-org", "组织架构", IconBuildingStore, "维护总部、区域、城市、门店和部门层级", "新增组织", ["一鸣食品总部", "浙北运营区域", "杭州西湖门店组"]),
+          item("enterprise-stores", "门店管理", IconBuildingStore, "维护门店资料、营业状态和服务范围", "新增门店", ["杭州西湖店", "宁波鄞州店", "温州鹿城店"]),
+          item("enterprise-employees", "员工管理", IconIdBadge2, "管理员工账号、岗位、归属门店和在职状态", "新增员工", ["区域运营经理", "门店店长", "会员运营专员"]),
+        ],
+      },
+      {
+        label: "权限与审批",
+        items: [
+          item("enterprise-roles", "角色权限", IconLock, "按角色配置页面、数据范围和业务操作权限", "新建角色", ["超级管理员", "区域运营", "门店店长"]),
+          item("enterprise-approvals", "审批中心", IconClipboardData, "处理权限、营销活动和数据导出的审批流程", "发起审批", ["优惠券活动审批", "员工数据权限申请", "会员数据导出审批"]),
+          item("enterprise-audit", "操作审计", IconFileText, "追踪重要配置、数据和权限的操作记录", "导出审计", ["权限配置变更", "会员数据导出", "系统参数修改"]),
+        ],
+      },
       {
         label: "应用与接口",
         items: [
