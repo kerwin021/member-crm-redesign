@@ -48,11 +48,11 @@ pnpm preview
 
 ## 数据库与宝塔部署
 
-PostgreSQL 数据库设计与宝塔部署文件已放在：
+MySQL 数据库设计与宝塔部署文件已放在：
 
-- `database/postgres/`
-- `deploy/baota/postgres/`
-- `docs/baota-postgres-deployment.md`
+- `database/mysql/`
+- `deploy/baota/mysql/`
+- `docs/baota-mysql-deployment.md`
 
 ## 技术栈
 
