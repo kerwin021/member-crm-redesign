@@ -86,6 +86,10 @@ def format_money_exact(value):
     return f"¥{as_float(value):,.2f}"
 
 
+def format_plain_money(value):
+    return f"{as_float(value):,.0f} 元"
+
+
 def format_dt(value, fmt="%Y-%m-%d %H:%M"):
     if not value:
         return ""
@@ -131,6 +135,14 @@ def ratio(value, total):
     if not total:
         return "0.00%"
     return f"{as_int(value) * 100 / as_int(total):.2f}%"
+
+
+def percent_value(value, total):
+    return round(as_int(value) * 100 / as_int(total), 2) if total else 0
+
+
+def percent_rows(rows, name_key="name", total_key="total", total=0):
+    return [{"name": row[name_key], "value": percent_value(row[total_key], total)} for row in rows]
 
 
 def trend_rows(conn, tenant_id, days):
@@ -203,6 +215,14 @@ def conversation_type_label(value):
     }.get(value or "", value or "聊天")
 
 
+def gender_label(value):
+    return {
+        "male": "男",
+        "female": "女",
+        "unknown": "未知",
+    }.get(value or "unknown", value or "未知")
+
+
 def load_app_data():
     with get_connection() as conn:
         tenant_code = env("APP_TENANT_CODE", "ym-foods")
@@ -261,6 +281,10 @@ def load_app_data():
             [row["source_channel"], format_number(row["total"]), round(as_int(row["total"]) * 100 / total_members, 2) if total_members else 0, COLOR_CYCLE[index % len(COLOR_CYCLE)]]
             for index, row in enumerate(source_raw)
         ]
+        platform_rows = [
+            {"name": row["source_channel"], "value": percent_value(row["total"], total_members)}
+            for row in source_raw
+        ]
 
         portrait_raw = query_all(
             conn,
@@ -274,6 +298,77 @@ def load_app_data():
             (tenant_id,),
         )
         portrait_bars = [{"name": row["age_band"], "value": round(as_int(row["total"]) * 100 / total_members, 2) if total_members else 0} for row in portrait_raw]
+        gender_rows = [
+            {"name": gender_label(row["gender_value"]), "value": percent_value(row["total"], total_members)}
+            for row in query_all(
+                conn,
+                """
+                SELECT COALESCE(gender, 'unknown') AS gender_value, COUNT(*) AS total
+                FROM crm_members
+                WHERE tenant_id = %s
+                GROUP BY gender_value
+                ORDER BY FIELD(gender_value, 'male', 'female', 'unknown')
+                """,
+                (tenant_id,),
+            )
+        ]
+        active_rows = [
+            {"name": row["active_label"], "value": percent_value(row["total"], total_members)}
+            for row in query_all(
+                conn,
+                """
+                SELECT CASE status
+                         WHEN 'active' THEN '高活跃'
+                         WHEN 'to_wake' THEN '低活跃'
+                         WHEN 'frozen' THEN '冻结'
+                         ELSE status
+                       END AS active_label,
+                       COUNT(*) AS total
+                FROM crm_members
+                WHERE tenant_id = %s
+                GROUP BY active_label
+                ORDER BY FIELD(active_label, '高活跃', '低活跃', '冻结')
+                """,
+                (tenant_id,),
+            )
+        ]
+        value_rows = [
+            {"name": row["value_label"], "value": percent_value(row["total"], total_members)}
+            for row in query_all(
+                conn,
+                """
+                SELECT CASE
+                         WHEN COALESCE(mm.contribution_score, 0) >= 85 THEN '高价值'
+                         WHEN COALESCE(mm.contribution_score, 0) >= 70 THEN '中价值'
+                         ELSE '低价值'
+                       END AS value_label,
+                       COUNT(*) AS total
+                FROM crm_members m
+                LEFT JOIN crm_member_metrics mm ON mm.member_id = m.id
+                WHERE m.tenant_id = %s
+                GROUP BY value_label
+                ORDER BY FIELD(value_label, '高价值', '中价值', '低价值')
+                """,
+                (tenant_id,),
+            )
+        ]
+        city_rows = percent_rows(
+            query_all(
+                conn,
+                """
+                SELECT COALESCE(JSON_UNQUOTE(JSON_EXTRACT(profile_json, '$.city')), '未知') AS city, COUNT(*) AS total
+                FROM crm_members
+                WHERE tenant_id = %s
+                GROUP BY city
+                ORDER BY total DESC, city
+                LIMIT 4
+                """,
+                (tenant_id,),
+            ),
+            "city",
+            "total",
+            total_members,
+        )
 
         member_rows = query_all(
             conn,
@@ -600,6 +695,48 @@ def load_app_data():
 
         sales_total = as_float(query_one(conn, "SELECT COALESCE(SUM(paid_amount), 0) AS total FROM sales_orders WHERE tenant_id = %s", (tenant_id,))["total"])
         order_total = as_int(query_one(conn, "SELECT COUNT(*) AS total FROM sales_orders WHERE tenant_id = %s", (tenant_id,))["total"])
+        trends_30 = trend_rows(conn, tenant_id, 30)
+        trends_90 = trend_rows(conn, tenant_id, 90)
+        period_new_total = sum(row["members"] for row in trends_30)
+        peak_row = max(trends_30, key=lambda row: row["members"]) if trends_30 else {"day": "-", "members": 0}
+        quadrant_rows = query_all(
+            conn,
+            """
+            SELECT CASE
+                     WHEN COALESCE(mm.total_spend, 0) >= 15000 THEN 'keep'
+                     WHEN COALESCE(mm.total_spend, 0) >= 5000 THEN 'grow'
+                     WHEN COALESCE(mm.total_spend, 0) >= 1000 THEN 'normal'
+                     ELSE 'winback'
+                   END AS bucket,
+                   COUNT(*) AS total,
+                   COALESCE(SUM(mm.total_spend), 0) AS spend
+            FROM crm_members m
+            LEFT JOIN crm_member_metrics mm ON mm.member_id = m.id
+            WHERE m.tenant_id = %s
+            GROUP BY bucket
+            """,
+            (tenant_id,),
+        )
+        quadrant_by_bucket = {row["bucket"]: row for row in quadrant_rows}
+        quadrant_labels = [
+            ("keep", "重要保持"),
+            ("grow", "重要发展"),
+            ("normal", "一般保持"),
+            ("winback", "低价值挽回"),
+        ]
+        quadrant_boxes = []
+        for bucket, label in quadrant_labels:
+            row = quadrant_by_bucket.get(bucket, {"total": 0, "spend": 0})
+            quadrant_boxes.append(
+                {
+                    "className": bucket,
+                    "title": label,
+                    "value": f"{format_number(row['total'])}人",
+                    "note": ratio(row["total"], total_members),
+                    "previous": "暂无历史",
+                    "spend": format_plain_money(row["spend"]),
+                }
+            )
 
         return {
             "meta": {
@@ -622,18 +759,35 @@ def load_app_data():
                     "quarterlyGrowth": "+0.00%",
                 },
                 "periodLabel": f"{format_date(max_register - timedelta(days=30))} 至 {format_date(max_register)}" if max_register else "暂无周期",
+                "periodSummary": {
+                    "total": format_number(period_new_total),
+                    "comparison": "+0.00%",
+                    "dailyAverage": format_number(round(period_new_total / len(trends_30))) if trends_30 else "0",
+                    "peakMembers": format_number(peak_row["members"]),
+                    "peakDay": peak_row["day"],
+                },
                 "totalMembers": total_members,
                 "totalMembersLabel": format_number(total_members),
                 "sourceTotal": format_number(total_members),
-                "trends30": trend_rows(conn, tenant_id, 30),
-                "trends90": trend_rows(conn, tenant_id, 90),
+                "trends30": trends_30,
+                "trends90": trends_90,
                 "levels": level_rows,
                 "sourceRows": source_rows,
                 "portraitBars": portrait_bars,
                 "portrait": {
-                    "gender": [{"name": "男", "value": 0}, {"name": "女", "value": 0}],
-                    "active": [{"name": "高活跃", "value": 0}, {"name": "中活跃", "value": 0}, {"name": "低活跃", "value": 0}],
-                    "valueData": [{"name": "高价值", "value": 0}, {"name": "中价值", "value": 0}, {"name": "低价值", "value": 0}],
+                    "gender": gender_rows,
+                    "active": active_rows,
+                    "valueData": value_rows,
+                    "city": city_rows,
+                    "platform": platform_rows,
+                },
+                "valueQuadrant": {
+                    "cutoffLabel": format_date(max_register) if max_register else "暂无日期",
+                    "compareLabel": "当前数据库累计",
+                    "previousMembers": "暂无历史",
+                    "currentMembers": format_number(total_members),
+                    "salesTotal": format_plain_money(sales_total),
+                    "boxes": quadrant_boxes,
                 },
             },
             "members": members,
@@ -651,13 +805,13 @@ def load_app_data():
             "clawPromptTemplates": claw_prompts,
             "clawTrend": [
                 {"day": row["day"], "insight": row["members"], "suggestion": max(0, row["members"] - 1)}
-                for row in trend_rows(conn, tenant_id, 30)
+                for row in trends_30
             ],
             "fanTrend": [
                 {"day": row["day"], "new": row["members"], "lost": 0, "active": row["members"]}
-                for row in trend_rows(conn, tenant_id, 30)
+                for row in trends_30
             ],
-            "memberTrend": [{"month": row["day"], "active": row["members"], "retention": row["rate"], "value": row["members"]} for row in trend_rows(conn, tenant_id, 90)],
+            "memberTrend": [{"month": row["day"], "active": row["members"], "retention": row["rate"], "value": row["members"]} for row in trends_90],
             "salesTrend": [
                 {"day": row["day"], "sales": row["sales"], "orders": row["orders"], "avg": row["avg"]}
                 for row in query_all(

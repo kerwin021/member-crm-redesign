@@ -241,7 +241,13 @@ function ChartTooltip({ active, payload, label }) {
 function TrendPanel({ period, onPeriod, onToast, data }) {
   const chartRows = period === "30" ? (data?.trends30?.length ? data.trends30 : trends30) : (data?.trends90?.length ? data.trends90 : trends90);
   const periodLabel = data?.periodLabel || "2026-05-15 至 2026-06-14";
-  const periodTotal = data?.sourceTotal || "26,843";
+  const periodSummary = data?.periodSummary || {};
+  const periodTotal = periodSummary.total || data?.sourceTotal || "26,843";
+  const comparison = periodSummary.comparison || "+12.31%";
+  const comparisonClass = comparison.startsWith("-") ? "negative" : "positive";
+  const dailyAverage = periodSummary.dailyAverage || "1,790";
+  const peakMembers = periodSummary.peakMembers || "2,356";
+  const peakDay = periodSummary.peakDay || "06-06";
   return (
     <section className="panel trend-panel">
       <div className="panel__head panel__head--wrap">
@@ -274,9 +280,9 @@ function TrendPanel({ period, onPeriod, onToast, data }) {
       <div className="trend-summary">
         <span>周期汇总（{periodLabel}）</span>
         <strong>新增会员 {periodTotal} 人</strong>
-        <strong className="positive">较上周期 +12.31%</strong>
-        <span>日均新增 1,790 人</span>
-        <span>峰值 2,356 人（06-06）</span>
+        <strong className={comparisonClass}>较上周期 {comparison}</strong>
+        <span>日均新增 {dailyAverage} 人</span>
+        <span>峰值 {peakMembers} 人（{peakDay}）</span>
       </div>
     </section>
   );
@@ -355,7 +361,10 @@ function PortraitPanel({ data }) {
   const gender = data?.portrait?.gender?.length ? data.portrait.gender : [{ name: "男", value: 61.32 }, { name: "女", value: 38.68 }];
   const active = data?.portrait?.active?.length ? data.portrait.active : [{ name: "高活跃", value: 32.45 }, { name: "中活跃", value: 41.23 }, { name: "低活跃", value: 26.32 }];
   const valueData = data?.portrait?.valueData?.length ? data.portrait.valueData : [{ name: "高价值", value: 18.62 }, { name: "中价值", value: 43.28 }, { name: "低价值", value: 38.1 }];
+  const city = data?.portrait?.city?.length ? data.portrait.city : [{ name: "企业职员", value: 42.18 }, { name: "个体经营", value: 18.72 }, { name: "学生", value: 12.35 }, { name: "自由职业", value: 8.96 }];
+  const platform = data?.portrait?.platform?.length ? data.portrait.platform : [{ name: "微信小程序", value: 72.45 }, { name: "公众号", value: 18.37 }, { name: "APP", value: 9.18 }];
   const ageRows = data?.portraitBars?.length ? data.portraitBars : portraitBars;
+  const dots = ["dot-blue", "dot-purple", "dot-green", "dot-teal"];
   return (
     <section className="panel portrait-panel">
       <div className="panel__head">
@@ -365,7 +374,7 @@ function PortraitPanel({ data }) {
       <div className="portrait-grid">
         <article className="mini-card">
           <h3>性别比例</h3>
-          <div className="mini-card__body"><MiniDonut data={gender} colors={["#2869f6", "#836ef4"]} /><ul><li><i className="dot-blue" />男 <strong>61.32%</strong></li><li><i className="dot-purple" />女 <strong>38.68%</strong></li></ul></div>
+          <div className="mini-card__body"><MiniDonut data={gender} colors={["#2869f6", "#836ef4", "#12bda7"]} /><ul>{gender.map((item, index) => <li key={item.name}><i className={dots[index % dots.length]} />{item.name} <strong>{item.value}%</strong></li>)}</ul></div>
         </article>
         <article className="mini-card">
           <h3>年龄分布</h3>
@@ -374,41 +383,42 @@ function PortraitPanel({ data }) {
         </article>
         <article className="mini-card">
           <h3>活跃度分析</h3>
-          <div className="mini-card__body"><MiniDonut data={active} colors={["#21b467", "#15c3aa", "#8b76ec"]} /><ul><li><i className="dot-green" />高活跃 <strong>32.45%</strong></li><li><i className="dot-teal" />中活跃 <strong>41.23%</strong></li><li><i className="dot-purple" />低活跃 <strong>26.32%</strong></li></ul></div>
+          <div className="mini-card__body"><MiniDonut data={active} colors={["#21b467", "#15c3aa", "#8b76ec"]} /><ul>{active.map((item, index) => <li key={item.name}><i className={["dot-green", "dot-teal", "dot-purple"][index % 3]} />{item.name} <strong>{item.value}%</strong></li>)}</ul></div>
         </article>
         <article className="mini-card occupation-card">
-          <h3>职业分布</h3>
-          {["企业职员", "个体经营", "学生", "自由职业"].map((item, index) => <div className="occupation-row" key={item}><span>{item}</span><i><b style={{ width: `${[78, 42, 31, 24][index]}%` }} /></i><strong>{[42.18, 18.72, 12.35, 8.96][index]}%</strong></div>)}
+          <h3>{data?.portrait?.city?.length ? "城市分布" : "职业分布"}</h3>
+          {city.map((item) => <div className="occupation-row" key={item.name}><span>{item.name}</span><i><b style={{ width: `${Math.min(item.value * 2, 100)}%` }} /></i><strong>{item.value}%</strong></div>)}
         </article>
         <article className="mini-card">
           <h3>价值分类</h3>
-          <div className="mini-card__body"><MiniDonut data={valueData} colors={["#15a962", "#16bfaa", "#7f9bf6"]} /><ul><li><i className="dot-green" />高价值 <strong>18.62%</strong></li><li><i className="dot-teal" />中价值 <strong>43.28%</strong></li><li><i className="dot-blue" />低价值 <strong>38.10%</strong></li></ul></div>
+          <div className="mini-card__body"><MiniDonut data={valueData} colors={["#15a962", "#16bfaa", "#7f9bf6"]} /><ul>{valueData.map((item, index) => <li key={item.name}><i className={["dot-green", "dot-teal", "dot-blue"][index % 3]} />{item.name} <strong>{item.value}%</strong></li>)}</ul></div>
         </article>
         <article className="mini-card platform-card">
           <h3>平台分布</h3>
-          <div className="platform-ring"><MiniDonut data={[{ name: "小程序", value: 72 }, { name: "公众号", value: 18 }, { name: "APP", value: 10 }]} colors={["#2869f6", "#12bda7", "#7384ee"]} /></div>
-          <ul><li><i className="dot-blue" />微信小程序 <strong>72.45%</strong></li><li><i className="dot-teal" />公众号 <strong>18.37%</strong></li><li><i className="dot-purple" />APP <strong>9.18%</strong></li></ul>
+          <div className="platform-ring"><MiniDonut data={platform} colors={["#2869f6", "#12bda7", "#7384ee", "#f6a817"]} /></div>
+          <ul>{platform.map((item, index) => <li key={item.name}><i className={["dot-blue", "dot-teal", "dot-purple", "dot-green"][index % 4]} />{item.name} <strong>{item.value}%</strong></li>)}</ul>
         </article>
       </div>
     </section>
   );
 }
 
-function ValueQuadrant() {
-  const boxes = [
-    { title: "重要保持", value: "8,342人", note: "24%", className: "keep" },
-    { title: "重要发展", value: "6,175人", note: "18%", className: "grow" },
-    { title: "一般保持", value: "7,856人", note: "30.36%", className: "normal" },
-    { title: "低价值挽回", value: "3,470人", note: "13.46%", className: "winback" },
+function ValueQuadrant({ data }) {
+  const quadrant = data?.valueQuadrant || {};
+  const boxes = quadrant.boxes?.length ? quadrant.boxes : [
+    { title: "重要保持", value: "8,342人", note: "24%", className: "keep", previous: "7,125", spend: "842,635 元" },
+    { title: "重要发展", value: "6,175人", note: "18%", className: "grow", previous: "5,246", spend: "842,635 元" },
+    { title: "一般保持", value: "7,856人", note: "30.36%", className: "normal", previous: "5,246", spend: "842,635 元" },
+    { title: "低价值挽回", value: "3,470人", note: "13.46%", className: "winback", previous: "5,246", spend: "842,635 元" },
   ];
   return (
     <section className="panel quadrant-panel">
       <div className="panel__head panel__head--compact">
-        <div><h2>会员价值分布象限</h2><p>截止日期：2026-06-14 · 对比周期 2026-05-15 至 2026-06-14</p></div>
-        <div className="quadrant-totals"><span>上月会员数 <strong>22,356</strong></span><span>本月会员数 <strong>25,843</strong></span><span>本月消费额 <strong>1,562,748 元</strong></span></div>
+        <div><h2>会员价值分布象限</h2><p>截止日期：{quadrant.cutoffLabel || "2026-06-14"} · {quadrant.compareLabel || "对比周期 2026-05-15 至 2026-06-14"}</p></div>
+        <div className="quadrant-totals"><span>上期会员数 <strong>{quadrant.previousMembers || "22,356"}</strong></span><span>当前会员数 <strong>{quadrant.currentMembers || "25,843"}</strong></span><span>当前消费额 <strong>{quadrant.salesTotal || "1,562,748 元"}</strong></span></div>
       </div>
       <div className="quadrant-grid">
-        {boxes.map((box) => <article className={`quadrant-box is-${box.className}`} key={box.title}><div><span>{box.title}</span><strong>{box.value}</strong><small>{box.note}</small></div><p>上月会员数：{box.className === "keep" ? "7,125" : "5,246"}<br />近 X 天消费额：842,635 元</p></article>)}
+        {boxes.map((box) => <article className={`quadrant-box is-${box.className}`} key={box.title}><div><span>{box.title}</span><strong>{box.value}</strong><small>{box.note}</small></div><p>上期会员数：{box.previous}<br />累计消费额：{box.spend}</p></article>)}
       </div>
       <div className="quadrant-axis"><span>低</span><span>消费金额</span><span>高</span></div>
     </section>
@@ -442,7 +452,7 @@ function Dashboard({ period, onPeriod, onToast, onAction, data }) {
         <SourcePanel data={data} />
         <PortraitPanel data={data} />
       </div>
-      <ValueQuadrant />
+      <ValueQuadrant data={data} />
       <QuickActions onAction={onAction} />
     </>
   );
