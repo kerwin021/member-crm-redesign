@@ -54,6 +54,7 @@ import {
   YAxis,
 } from "recharts";
 import { BusinessPageRouter } from "./BusinessPages.jsx";
+import { useAppData } from "./data/useAppData.js";
 import { DOMAIN_NAV, DOMAIN_NAVIGATION, DOMAIN_PAGES, PAGE_META } from "./navigationConfig.jsx";
 
 const trends30 = [
@@ -210,17 +211,18 @@ function MetricCard({ icon: Icon, label, value, delta, color }) {
   );
 }
 
-function SummaryStrip() {
+function SummaryStrip({ data }) {
+  const summary = data?.summary || {};
   return (
     <section className="summary-strip">
-      <MetricCard icon={IconUsers} label="会员总数" value="128,670" delta="2.35%" color="blue" />
-      <MetricCard icon={IconCalendar} label="昨日新增" value="1,258" delta="8.42%" color="green" />
-      <MetricCard icon={IconCalendar} label="本月新增" value="6,782" delta="12.31%" color="orange" />
-      <MetricCard icon={IconTrendingUp} label="本季新增" value="18,934" delta="15.62%" color="gold" />
+      <MetricCard icon={IconUsers} label="会员总数" value={summary.totalMembers || "128,670"} delta={summary.totalDelta || "2.35%"} color="blue" />
+      <MetricCard icon={IconCalendar} label="昨日新增" value={summary.yesterdayNew || "1,258"} delta={summary.yesterdayDelta || "8.42%"} color="green" />
+      <MetricCard icon={IconCalendar} label="本月新增" value={summary.monthNew || "6,782"} delta={summary.monthDelta || "12.31%"} color="orange" />
+      <MetricCard icon={IconTrendingUp} label="本季新增" value={summary.quarterNew || "18,934"} delta={summary.quarterDelta || "15.62%"} color="gold" />
       <div className="growth-metrics">
-        <div><span>日环比增长率</span><strong>+2.35%</strong></div>
-        <div><span>月环比增长率</span><strong>+12.31%</strong></div>
-        <div><span>季环比增长率</span><strong>+15.62%</strong></div>
+        <div><span>日环比增长率</span><strong>{summary.dailyGrowth || "+2.35%"}</strong></div>
+        <div><span>月环比增长率</span><strong>{summary.monthlyGrowth || "+12.31%"}</strong></div>
+        <div><span>季环比增长率</span><strong>{summary.quarterlyGrowth || "+15.62%"}</strong></div>
       </div>
     </section>
   );
@@ -236,8 +238,10 @@ function ChartTooltip({ active, payload, label }) {
   );
 }
 
-function TrendPanel({ period, onPeriod, onToast }) {
-  const data = period === "30" ? trends30 : trends90;
+function TrendPanel({ period, onPeriod, onToast, data }) {
+  const chartRows = period === "30" ? (data?.trends30?.length ? data.trends30 : trends30) : (data?.trends90?.length ? data.trends90 : trends90);
+  const periodLabel = data?.periodLabel || "2026-05-15 至 2026-06-14";
+  const periodTotal = data?.sourceTotal || "26,843";
   return (
     <section className="panel trend-panel">
       <div className="panel__head panel__head--wrap">
@@ -250,13 +254,13 @@ function TrendPanel({ period, onPeriod, onToast }) {
             <button className={period === "30" ? "is-active" : ""} onClick={() => onPeriod("30")}>近30天</button>
             <button className={period === "90" ? "is-active" : ""} onClick={() => onPeriod("90")}>近90天</button>
           </div>
-          <button className="quiet-button"><IconCalendar size={16} /> 2026-05-15 至 2026-06-14</button>
+          <button className="quiet-button"><IconCalendar size={16} /> {periodLabel}</button>
           <button className="outline-button" onClick={() => onToast("趋势图已加入导出任务")}><IconDatabaseExport size={16} /> 导出图表</button>
         </div>
       </div>
       <div className="trend-chart">
         <ResponsiveContainer width="100%" height="100%">
-          <ComposedChart data={data} margin={{ top: 14, right: 4, left: -22, bottom: 0 }}>
+          <ComposedChart data={chartRows} margin={{ top: 14, right: 4, left: -22, bottom: 0 }}>
             <CartesianGrid stroke="#edf1f8" vertical={false} />
             <XAxis dataKey="day" tickLine={false} axisLine={false} tick={{ fill: "#8792a8", fontSize: 13 }} />
             <YAxis yAxisId="left" tickLine={false} axisLine={false} tick={{ fill: "#8792a8", fontSize: 13 }} />
@@ -268,8 +272,8 @@ function TrendPanel({ period, onPeriod, onToast }) {
         </ResponsiveContainer>
       </div>
       <div className="trend-summary">
-        <span>周期汇总（2026-05-15 至 2026-06-14）</span>
-        <strong>新增会员 26,843 人</strong>
+        <span>周期汇总（{periodLabel}）</span>
+        <strong>新增会员 {periodTotal} 人</strong>
         <strong className="positive">较上周期 +12.31%</strong>
         <span>日均新增 1,790 人</span>
         <span>峰值 2,356 人（06-06）</span>
@@ -278,7 +282,9 @@ function TrendPanel({ period, onPeriod, onToast }) {
   );
 }
 
-function LevelPanel() {
+function LevelPanel({ data }) {
+  const levelRows = data?.levels?.length ? data.levels : levels;
+  const totalLabel = data?.totalMembersLabel || "128,670";
   return (
     <section className="panel level-panel">
       <div className="panel__head">
@@ -289,16 +295,16 @@ function LevelPanel() {
         <div className="donut-wrap">
           <ResponsiveContainer width="100%" height="100%">
             <PieChart>
-              <Pie data={levels} dataKey="value" innerRadius={55} outerRadius={78} paddingAngle={2} stroke="none">
-                {levels.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+              <Pie data={levelRows} dataKey="value" innerRadius={55} outerRadius={78} paddingAngle={2} stroke="none">
+                {levelRows.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
               </Pie>
               <Tooltip formatter={(value) => formatNumber(value)} />
             </PieChart>
           </ResponsiveContainer>
-          <div className="donut-center"><span>总数</span><strong>128,670</strong></div>
+          <div className="donut-center"><span>总数</span><strong>{totalLabel}</strong></div>
         </div>
         <div className="legend-list">
-          {levels.map((item) => (
+          {levelRows.map((item) => (
             <div key={item.name}>
               <span className="legend-dot" style={{ background: item.color }} />
               <span>{item.name}</span>
@@ -312,22 +318,25 @@ function LevelPanel() {
   );
 }
 
-function SourcePanel() {
+function SourcePanel({ data }) {
+  const rows = data?.sourceRows?.length ? data.sourceRows : sourceRows;
+  const total = data?.sourceTotal || "26,843";
+  const periodLabel = data?.periodLabel || "2026-05-15 至 2026-06-14";
   return (
     <section className="panel source-panel">
       <div className="panel__head">
-        <div><h2>会员注册来源分析</h2><p>2026-05-15 至 2026-06-14</p></div>
+        <div><h2>会员注册来源分析</h2><p>{periodLabel}</p></div>
         <button className="quiet-button">近30天 <IconChevronDown size={14} /></button>
       </div>
       <div className="source-table source-table--header"><span>注册来源</span><span>注册人数</span><span>来源占比</span></div>
-      {sourceRows.map(([source, count, ratio, color]) => (
+      {rows.map(([source, count, ratio, color]) => (
         <div className="source-table" key={source}>
           <strong>{source}</strong>
           <span>{count}</span>
           <div className="ratio-cell"><i className={`is-${color}`} style={{ width: `${ratio * 1.35}%` }} /><small>{ratio}%</small></div>
         </div>
       ))}
-      <div className="source-total"><strong>合计</strong><strong>26,843</strong><strong>100%</strong></div>
+      <div className="source-total"><strong>合计</strong><strong>{total}</strong><strong>100%</strong></div>
     </section>
   );
 }
@@ -342,10 +351,11 @@ function MiniDonut({ data, colors }) {
   );
 }
 
-function PortraitPanel() {
-  const gender = [{ name: "男", value: 61.32 }, { name: "女", value: 38.68 }];
-  const active = [{ name: "高活跃", value: 32.45 }, { name: "中活跃", value: 41.23 }, { name: "低活跃", value: 26.32 }];
-  const valueData = [{ name: "高价值", value: 18.62 }, { name: "中价值", value: 43.28 }, { name: "低价值", value: 38.1 }];
+function PortraitPanel({ data }) {
+  const gender = data?.portrait?.gender?.length ? data.portrait.gender : [{ name: "男", value: 61.32 }, { name: "女", value: 38.68 }];
+  const active = data?.portrait?.active?.length ? data.portrait.active : [{ name: "高活跃", value: 32.45 }, { name: "中活跃", value: 41.23 }, { name: "低活跃", value: 26.32 }];
+  const valueData = data?.portrait?.valueData?.length ? data.portrait.valueData : [{ name: "高价值", value: 18.62 }, { name: "中价值", value: 43.28 }, { name: "低价值", value: 38.1 }];
+  const ageRows = data?.portraitBars?.length ? data.portraitBars : portraitBars;
   return (
     <section className="panel portrait-panel">
       <div className="panel__head">
@@ -359,8 +369,8 @@ function PortraitPanel() {
         </article>
         <article className="mini-card">
           <h3>年龄分布</h3>
-          <div className="age-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={portraitBars}><Bar dataKey="value" radius={[5, 5, 2, 2]}>{portraitBars.map((entry, i) => <Cell key={entry.name} fill={["#8cb6ff", "#4e79f5", "#7466ec", "#9b8cf6", "#c5d3ff"][i]} />)}</Bar><XAxis dataKey="name" hide /><Tooltip /></BarChart></ResponsiveContainer></div>
-          <div className="age-labels"><span>25-34</span><strong>39.75%</strong></div>
+          <div className="age-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={ageRows}><Bar dataKey="value" radius={[5, 5, 2, 2]}>{ageRows.map((entry, i) => <Cell key={entry.name} fill={["#8cb6ff", "#4e79f5", "#7466ec", "#9b8cf6", "#c5d3ff"][i]} />)}</Bar><XAxis dataKey="name" hide /><Tooltip /></BarChart></ResponsiveContainer></div>
+          <div className="age-labels"><span>{ageRows[0]?.name || "25-34"}</span><strong>{ageRows[0]?.value || 39.75}%</strong></div>
         </article>
         <article className="mini-card">
           <h3>活跃度分析</h3>
@@ -420,17 +430,17 @@ function QuickActions({ onAction }) {
   );
 }
 
-function Dashboard({ period, onPeriod, onToast, onAction }) {
+function Dashboard({ period, onPeriod, onToast, onAction, data }) {
   return (
     <>
-      <SummaryStrip />
+      <SummaryStrip data={data} />
       <div className="dashboard-grid dashboard-grid--top">
-        <TrendPanel period={period} onPeriod={onPeriod} onToast={onToast} />
-        <LevelPanel />
+        <TrendPanel period={period} onPeriod={onPeriod} onToast={onToast} data={data} />
+        <LevelPanel data={data} />
       </div>
       <div className="dashboard-grid dashboard-grid--middle">
-        <SourcePanel />
-        <PortraitPanel />
+        <SourcePanel data={data} />
+        <PortraitPanel data={data} />
       </div>
       <ValueQuadrant />
       <QuickActions onAction={onAction} />
@@ -444,15 +454,18 @@ function FilterField({ label, placeholder, icon: Icon = IconSearch, value, onCha
   );
 }
 
-function MembersPage({ onToast, onAction }) {
+function MembersPage({ onToast, onAction, data }) {
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("全部等级");
   const [selected, setSelected] = useState([]);
-  const visible = useMemo(() => members.filter((member) => {
+  const memberRows = data?.members?.length ? data.members : members;
+  const levelRows = data?.dashboard?.levels?.length ? data.dashboard.levels : levels;
+  const totalLabel = data?.dashboard?.totalMembersLabel || "128,670";
+  const visible = useMemo(() => memberRows.filter((member) => {
     const hitText = !query || `${member.id}${member.name}${member.phone}${member.store}`.includes(query);
     const hitLevel = level === "全部等级" || member.level === level;
     return hitText && hitLevel;
-  }), [query, level]);
+  }), [query, level, memberRows]);
   const allSelected = visible.length > 0 && visible.every((item) => selected.includes(item.id));
   const toggleAll = () => setSelected(allSelected ? selected.filter((id) => !visible.some((item) => item.id === id)) : [...new Set([...selected, ...visible.map((item) => item.id)])]);
   const toggleOne = (id) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -465,7 +478,7 @@ function MembersPage({ onToast, onAction }) {
       <section className="panel filter-panel">
         <div className="filter-grid">
           <FilterField label="快速搜索" placeholder="会员编码、名称、手机号或门店" value={query} onChange={(event) => setQuery(event.target.value)} />
-          <label className="filter-field"><span>会员等级</span><div><IconIdBadge2 size={16} /><select value={level} onChange={(event) => setLevel(event.target.value)}><option>全部等级</option>{levels.map((item) => <option key={item.name}>{item.name}</option>)}</select></div></label>
+          <label className="filter-field"><span>会员等级</span><div><IconIdBadge2 size={16} /><select value={level} onChange={(event) => setLevel(event.target.value)}><option>全部等级</option>{levelRows.map((item) => <option key={item.name}>{item.name}</option>)}</select></div></label>
           <label className="filter-field"><span>注册日期</span><div><IconCalendar size={16} /><input value="2026-06-01 至 2026-06-14" readOnly /></div></label>
           <label className="filter-field"><span>归属门店</span><div><IconBuildingStore size={16} /><select><option>全部门店</option><option>杭州西湖店</option><option>宁波鄞州店</option></select></div></label>
         </div>
@@ -473,7 +486,7 @@ function MembersPage({ onToast, onAction }) {
       </section>
       <section className="panel member-table-panel">
         <div className="table-toolbar">
-          <div><strong>会员数据</strong><span>共 128,670 位会员</span></div>
+          <div><strong>会员数据</strong><span>共 {totalLabel} 位会员</span></div>
           <div className="toolbar-actions"><button onClick={() => onToast("导入模板已准备下载")}>导入</button><button onClick={() => onToast("会员数据已加入导出任务")}>导出</button><button disabled={!selected.length} onClick={() => onToast(`已为 ${selected.length} 位会员创建发券任务`)}>券发放</button><button disabled={!selected.length}>等级变更</button></div>
         </div>
         <div className="table-scroll">
@@ -510,11 +523,21 @@ function getInitialFabPosition() {
   return clampFabPosition(window.innerWidth - DEFAULT_FAB_SIZE.width - 20, window.innerHeight - DEFAULT_FAB_SIZE.height - 20);
 }
 
-function AIPanel({ open, onToggle, onToast, onAction }) {
+function AIPanel({ open, onToggle, onToast, onAction, data }) {
   const [tab, setTab] = useState("洞察");
   const [prompt, setPrompt] = useState("");
   const [fabPosition, setFabPosition] = useState(getInitialFabPosition);
   const dragState = useRef({ active: false, moved: false, suppressClick: false });
+  const aiInsightCards = (data?.clawInsightCards?.length ? data.clawInsightCards : insightCards).map((item, index) => ({
+    ...item,
+    icon: item.icon || [IconTrendingUp, IconActivity, IconTrendingDown][index] || IconSparkles,
+  }));
+  const aiSuggestionCards = data?.clawSuggestionCards?.length ? data.clawSuggestionCards : [
+    { title: "针对重要发展会员", desc: "推送成长型会员礼包，提升升级效率。", action: "去执行" },
+    { title: "优化会员等级权益", desc: "升级银卡 / 金卡权益激励，促进成长。", action: "去配置" },
+    { title: "沉睡会员唤醒计划", desc: "基于最后活跃时间触达，提升复购。", action: "去创建" },
+  ];
+  const aiPromptChips = data?.clawPromptTemplates?.length ? data.clawPromptTemplates.map((item) => item.prompt) : ["本月新增会员来源占比如何？", "近 7 天新增趋势怎么样？", "高价值会员的消费特征是什么？", "哪些渠道带来的会员质量最高？"];
   const moveFab = (clientX, clientY) => {
     const state = dragState.current;
     if (!state.active) return;
@@ -590,11 +613,11 @@ function AIPanel({ open, onToggle, onToast, onAction }) {
       <div className="ai-panel__head"><div><span className="ai-logo"><IconBrain size={21} /></span><strong>AI 助手</strong></div><div><button className="icon-button" onClick={onToggle}><IconChevronRight size={19} /></button></div></div>
       <div className="ai-tabs">{["洞察", "建议", "问答"].map((item) => <button className={tab === item ? "is-active" : ""} key={item} onClick={() => setTab(item)}>{item}</button>)}</div>
       <div className="ai-panel__body">
-        {tab === "洞察" && <><h3>本期洞察</h3><div className="insight-list">{insightCards.map(({ title, desc, tone, icon: Icon }) => <article className={`insight-card is-${tone}`} key={title}><span><Icon size={18} /></span><div><strong>{title}</strong><p>{desc}</p></div></article>)}</div></>}
-        {tab === "建议" && <><h3>智能建议</h3><div className="suggestion-list"><article><strong>针对重要发展会员</strong><p>推送成长型会员礼包，提升升级效率。</p><button onClick={() => onAction("发放优惠券")}>去执行</button></article><article><strong>优化会员等级权益</strong><p>升级银卡 / 金卡权益激励，促进成长。</p><button onClick={() => onToast("已打开等级权益配置")}>去配置</button></article><article><strong>沉睡会员唤醒计划</strong><p>基于最后活跃时间触达，提升复购。</p><button onClick={() => onAction("创建分群")}>去创建</button></article></div></>}
+        {tab === "洞察" && <><h3>本期洞察</h3><div className="insight-list">{aiInsightCards.map(({ title, desc, tone, icon: Icon }) => <article className={`insight-card is-${tone}`} key={title}><span><Icon size={18} /></span><div><strong>{title}</strong><p>{desc}</p></div></article>)}</div></>}
+        {tab === "建议" && <><h3>智能建议</h3><div className="suggestion-list">{aiSuggestionCards.map((item) => <article key={item.title}><strong>{item.title}</strong><p>{item.desc}</p><button onClick={() => item.action?.includes("配置") ? onToast("已打开等级权益配置") : onAction(item.action || "创建分群")}>{item.action || "去执行"}</button></article>)}</div></>}
         {tab === "问答" && <div className="qa-welcome"><IconMessageCircle size={36} /><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>}
         <h3>你可以问我</h3>
-        <div className="prompt-chips">{["本月新增会员来源占比如何？", "近 7 天新增趋势怎么样？", "高价值会员的消费特征是什么？", "哪些渠道带来的会员质量最高？"].map((item) => <button key={item} onClick={() => setPrompt(item)}>{item}</button>)}</div>
+        <div className="prompt-chips">{aiPromptChips.map((item) => <button key={item} onClick={() => setPrompt(item)}>{item}</button>)}</div>
       </div>
       <div className="ai-input"><input value={prompt} onChange={(event) => setPrompt(event.target.value)} placeholder="请输入问题，获取数据洞察..." /><button onClick={() => { if (prompt) { onToast("AI 正在生成洞察摘要"); setPrompt(""); } }}><IconSend2 size={18} /></button></div>
       <small className="ai-disclaimer">内容由 AI 生成，仅供参考</small>
@@ -628,6 +651,33 @@ export function App() {
   const [toast, setToast] = useState("");
   const [action, setAction] = useState("");
   const toastTimeout = useRef(null);
+  const fallbackData = useMemo(() => ({
+    dashboard: {
+      summary: {
+        totalMembers: "128,670",
+        totalDelta: "2.35%",
+        yesterdayNew: "1,258",
+        yesterdayDelta: "8.42%",
+        monthNew: "6,782",
+        monthDelta: "12.31%",
+        quarterNew: "18,934",
+        quarterDelta: "15.62%",
+        dailyGrowth: "+2.35%",
+        monthlyGrowth: "+12.31%",
+        quarterlyGrowth: "+15.62%",
+      },
+      periodLabel: "2026-05-15 至 2026-06-14",
+      totalMembersLabel: "128,670",
+      sourceTotal: "26,843",
+      trends30,
+      trends90,
+      levels,
+      sourceRows,
+      portraitBars,
+    },
+    members,
+  }), []);
+  const { data: appData } = useAppData(fallbackData);
 
   const showToast = (message) => {
     setToast(message);
@@ -649,10 +699,10 @@ export function App() {
       <main className="main-area">
         <div className="breadcrumb"><span /><strong>{currentMeta.group}</strong>{activePage !== DOMAIN_PAGES[activeDomain] && <><IconChevronRight size={14} /><span>{currentMeta.title}</span></>}</div>
         <div className="content-scroll">
-          {activePage === "dashboard" ? <Dashboard period={period} onPeriod={setPeriod} onToast={showToast} onAction={setAction} /> : activePage === "members" ? <MembersPage onToast={showToast} onAction={setAction} /> : <BusinessPageRouter activePage={activePage} onToast={showToast} onAction={setAction} />}
+          {activePage === "dashboard" ? <Dashboard period={period} onPeriod={setPeriod} onToast={showToast} onAction={setAction} data={appData.dashboard} /> : activePage === "members" ? <MembersPage onToast={showToast} onAction={setAction} data={appData} /> : <BusinessPageRouter activePage={activePage} onToast={showToast} onAction={setAction} data={appData} />}
         </div>
       </main>
-      <AIPanel open={aiOpen} onToggle={() => setAiOpen((value) => !value)} onToast={showToast} onAction={setAction} />
+      <AIPanel open={aiOpen} onToggle={() => setAiOpen((value) => !value)} onToast={showToast} onAction={setAction} data={appData} />
       <ActionModal action={action} onClose={() => setAction("")} onToast={showToast} />
       {toast && <div className="toast"><IconSparkles size={17} />{toast}</div>}
     </div>

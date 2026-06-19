@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   IconActivity,
@@ -211,6 +211,23 @@ const clawTrend = [
   { day: "06-15", insight: 91, suggestion: 63 },
 ];
 
+function rowsFrom(dataRows, fallbackRows) {
+  return dataRows?.length ? dataRows : fallbackRows;
+}
+
+function useSyncedRows(dataRows, fallbackRows) {
+  const sourceRows = rowsFrom(dataRows, fallbackRows);
+  const [rows, setRows] = useState(sourceRows);
+  useEffect(() => {
+    setRows(sourceRows);
+  }, [sourceRows]);
+  return [rows, setRows];
+}
+
+function withIcons(rows, icons) {
+  return rows.map((item, index) => ({ ...item, icon: item.icon || icons[index] || IconSparkles }));
+}
+
 function PageHeader({ title, subtitle, primaryLabel, primaryIcon: PrimaryIcon = IconPlus, onPrimary, actions }) {
   return (
     <div className="workspace-title">
@@ -281,7 +298,7 @@ function EmptyFiltered() {
   return <div className="business-empty"><IconFilter size={34} /><strong>没有符合条件的数据</strong><p>调整筛选条件后重新查询</p></div>;
 }
 
-function ClawWorkspacePage({ activePage, onToast }) {
+function ClawWorkspacePage({ activePage, onToast, data }) {
   const [prompt, setPrompt] = useState("");
   const [activeTool, setActiveTool] = useState(clawToolEntrances[0].label);
   const [activeScope, setActiveScope] = useState("近30天");
@@ -289,6 +306,10 @@ function ClawWorkspacePage({ activePage, onToast }) {
   const [answerSteps, setAnswerSteps] = useState(["识别问题范围", "匹配会员指标", "生成运营建议"]);
   const [completedActions, setCompletedActions] = useState([]);
   const [recommendRefresh, setRecommendRefresh] = useState(0);
+  const insightRows = withIcons(rowsFrom(data?.clawInsightCards, clawInsightCards), [IconArrowUpRight, IconTargetArrow, IconActivity]);
+  const suggestionRows = withIcons(rowsFrom(data?.clawSuggestionCards, clawSuggestionCards), [IconSparkles, IconHeartHandshake, IconUsersGroup]);
+  const promptRows = rowsFrom(data?.clawPromptTemplates, clawPromptTemplates);
+  const trendRows = rowsFrom(data?.clawTrend, clawTrend);
   const pageTitle = {
     "claw-insights": "本期洞察",
     "claw-qa": "智能问答",
@@ -347,13 +368,13 @@ function ClawWorkspacePage({ activePage, onToast }) {
           <section className="panel claw-main-panel">
             <div className="business-table-head"><div><h2>本期洞察</h2><p>与右侧 AI 助手的洞察卡保持一致，并扩展为页面级分析</p></div></div>
             <div className="claw-insight-list">
-              {clawInsightCards.map(({ title, desc, tone, icon: Icon }) => <article className={`insight-card is-${tone}`} key={title}><span><Icon size={18}/></span><div><strong>{title}</strong><p>{desc}</p></div></article>)}
+              {insightRows.map(({ title, desc, tone, icon: Icon }) => <article className={`insight-card is-${tone}`} key={title}><span><Icon size={18}/></span><div><strong>{title}</strong><p>{desc}</p></div></article>)}
             </div>
           </section>
           <section className="panel claw-chart-panel">
             <div className="business-table-head"><div><h2>AI 使用趋势</h2><p>洞察生成与建议采纳变化</p></div></div>
             <div className="claw-chart">
-              <ResponsiveContainer width="100%" height="100%"><LineChart data={clawTrend}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Line name="洞察" dataKey="insight" stroke="#2869f6" strokeWidth={3}/><Line name="建议" dataKey="suggestion" stroke="#13bda5" strokeWidth={3}/></LineChart></ResponsiveContainer>
+              <ResponsiveContainer width="100%" height="100%"><LineChart data={trendRows}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Line name="洞察" dataKey="insight" stroke="#2869f6" strokeWidth={3}/><Line name="建议" dataKey="suggestion" stroke="#13bda5" strokeWidth={3}/></LineChart></ResponsiveContainer>
             </div>
           </section>
         </div>
@@ -429,7 +450,7 @@ function ClawWorkspacePage({ activePage, onToast }) {
             <section className="claw-qa-prompts">
               <div className="business-table-head"><div><h2>推荐问题</h2><p>参考豆包首页问题入口，点击卡片即可提问</p></div></div>
               <div className="claw-prompt-cards">
-                {clawPromptTemplates.map((item) => (
+                {promptRows.map((item) => (
                   <button key={item.prompt} onClick={() => askClaw(item.prompt)}>
                     <span>{item.scene}</span>
                     <strong>{item.prompt}</strong>
@@ -441,14 +462,14 @@ function ClawWorkspacePage({ activePage, onToast }) {
             <section className="claw-qa-recommend">
               <div className="business-table-head"><div><h2>智能推荐</h2><p>原智能推荐页能力已并入问答页，可直接执行</p></div><button className="quiet-button" onClick={() => { setRecommendRefresh((count) => count + 1); onToast("已生成 3 条新推荐"); }}>重新生成</button></div>
               <div className="claw-suggestion-grid is-compact">
-                {clawSuggestionCards.map(({ title, desc, action, tone, icon: Icon }, index) => {
+                {suggestionRows.map(({ title, desc, action, tone, icon: Icon, expected }, index) => {
                   const done = completedActions.includes(title);
                   return (
                     <article className={`claw-suggestion-card is-${tone} ${done ? "is-done" : ""}`} key={title}>
                       <span><Icon size={20}/></span>
                       <h3>{title}</h3>
                       <p>{desc}</p>
-                      <small>推荐批次 #{recommendRefresh + 1} · 预计影响 {["4.8%", "6.2%", "9.1%"][index]}</small>
+                      <small>推荐批次 #{recommendRefresh + 1} · 预计影响 {expected || ["4.8%", "6.2%", "9.1%"][index]}</small>
                       <button onClick={() => executeSuggestion(title, action)}>{done ? <IconCheck size={15}/> : null}{done ? "已创建" : action}<IconChevronRight size={15}/></button>
                     </article>
                   );
@@ -461,15 +482,15 @@ function ClawWorkspacePage({ activePage, onToast }) {
 
       {activePage === "claw-prompts" && (
         <section className="panel business-table-card">
-          <div className="business-table-head"><div><h2>推荐问题</h2><p>沉淀右侧 AI 助手里的高频问题，点击即可带入问答</p></div><span className="record-count">共 {clawPromptTemplates.length} 条</span></div>
-          <div className="table-scroll"><table><thead><tr><th>场景</th><th>推荐问题</th><th>维护人</th><th>使用次数</th><th>操作</th></tr></thead><tbody>{clawPromptTemplates.map((item) => <tr key={item.prompt}><td>{item.scene}</td><td><strong>{item.prompt}</strong></td><td>{item.owner}</td><td>{item.used}</td><td><button className="table-link" onClick={() => askClaw(item.prompt)}>立即提问</button></td></tr>)}</tbody></table></div>
+          <div className="business-table-head"><div><h2>推荐问题</h2><p>沉淀右侧 AI 助手里的高频问题，点击即可带入问答</p></div><span className="record-count">共 {promptRows.length} 条</span></div>
+          <div className="table-scroll"><table><thead><tr><th>场景</th><th>推荐问题</th><th>维护人</th><th>使用次数</th><th>操作</th></tr></thead><tbody>{promptRows.map((item) => <tr key={item.prompt}><td>{item.scene}</td><td><strong>{item.prompt}</strong></td><td>{item.owner}</td><td>{item.used}</td><td><button className="table-link" onClick={() => askClaw(item.prompt)}>立即提问</button></td></tr>)}</tbody></table></div>
         </section>
       )}
 
       {activePage !== "claw-qa" && (
         <section className="panel claw-prompt-panel">
           <div className="business-table-head"><div><h2>你可以问我</h2><p>与右侧 AI 助手一致的推荐问题入口</p></div></div>
-          <div className="prompt-chips">{clawPromptTemplates.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)}>{item.prompt}</button>)}</div>
+          <div className="prompt-chips">{promptRows.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)}>{item.prompt}</button>)}</div>
         </section>
       )}
     </section>
@@ -481,20 +502,24 @@ function WechatAvatar({ item, compact = false }) {
   return <span className={`wechat-avatar is-${item.tone} ${compact ? "is-compact" : ""}`}>{content}</span>;
 }
 
-function WechatChatPage({ onToast }) {
+function WechatChatPage({ onToast, data }) {
+  const conversationRows = rowsFrom(data?.wechatConversations, wechatConversations);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("聊天框");
   const [activeType, setActiveType] = useState("聊天");
   const [dayFilter, setDayFilter] = useState("今日");
-  const [selectedId, setSelectedId] = useState("yingyou");
+  const [selectedId, setSelectedId] = useState(conversationRows[0]?.id || "yingyou");
   const [pinned, setPinned] = useState(true);
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useState(initialWechatMessages);
-  const filteredConversations = wechatConversations.filter((item) => {
+  const [messages, setMessages] = useSyncedRows(data?.wechatMessages, initialWechatMessages);
+  useEffect(() => {
+    if (!conversationRows.some((item) => item.id === selectedId)) setSelectedId(conversationRows[0]?.id || "yingyou");
+  }, [conversationRows, selectedId]);
+  const filteredConversations = conversationRows.filter((item) => {
     const typeMatched = activeTab === "未读" ? item.unread > 0 : activeTab === "通讯录" ? true : activeType === "全部" || item.type === activeType;
     return typeMatched && `${item.name}${item.preview}`.includes(query);
   });
-  const selected = wechatConversations.find((item) => item.id === selectedId) || wechatConversations[0];
+  const selected = conversationRows.find((item) => item.id === selectedId) || conversationRows[0] || wechatConversations[0];
   const sendMessage = () => {
     const text = draft.trim();
     if (!text) {
@@ -580,10 +605,11 @@ function WechatChatPage({ onToast }) {
   );
 }
 
-function HighValuePage({ onToast, onAction }) {
+function HighValuePage({ onToast, onAction, data }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
-  const rows = highValueMembers.filter((item) => `${item.name}${item.id}${item.store}`.includes(query));
+  const sourceRows = rowsFrom(data?.highValueMembers, highValueMembers);
+  const rows = sourceRows.filter((item) => `${item.name}${item.id}${item.store}`.includes(query));
   return (
     <section className="business-page">
       <PageHeader title="高贡献会员" subtitle="聚焦高价值、高频次和高成长会员，提供专属运营策略" primaryLabel="创建专属人群" primaryIcon={IconUsersGroup} onPrimary={() => onAction("创建分群")} actions={<button className="outline-button" onClick={() => onToast("高贡献会员名单已加入导出任务")}><IconDatabaseExport size={16} />导出名单</button>} />
@@ -595,16 +621,17 @@ function HighValuePage({ onToast, onAction }) {
   );
 }
 
-function LogsPage({ onToast }) {
+function LogsPage({ onToast, data }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("全部类型");
   const [selected, setSelected] = useState(null);
-  const rows = logRows.filter((row) => (!query || `${row.member}${row.detail}${row.operator}`.includes(query)) && (type === "全部类型" || row.action === type));
+  const sourceRows = rowsFrom(data?.logRows, logRows);
+  const rows = sourceRows.filter((row) => (!query || `${row.member}${row.detail}${row.operator}`.includes(query)) && (type === "全部类型" || row.action === type));
   return <section className="business-page"><PageHeader title="会员日志" subtitle="追踪会员资料、等级、权益、积分和账户状态的全部变更" actions={<button className="outline-button" onClick={() => onToast("会员日志已导出")}><IconDatabaseExport size={16} />导出日志</button>} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索会员、操作人或变更内容" onReset={() => { setQuery(""); setType("全部类型"); }} onSearch={() => onToast(`已筛选 ${rows.length} 条日志`)}><select value={type} onChange={(event) => setType(event.target.value)}><option>全部类型</option><option>会员等级变更</option><option>优惠券发放</option><option>标签变更</option><option>资料更新</option><option>账户冻结</option><option>积分变更</option></select><button className="business-date"><IconCalendar size={15} />2026-06-01 至 2026-06-15</button></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>操作记录</h2><p>所有关键变更均保留操作来源与执行人</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>操作时间</th><th>会员</th><th>操作类型</th><th>变更内容</th><th>操作人</th><th>来源</th><th>操作</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.time}-${row.member}`}><td>{row.time}</td><td><strong>{row.member}</strong></td><td><Pill tone={row.action.includes("冻结") ? "red" : row.action.includes("发放") ? "orange" : "blue"}>{row.action}</Pill></td><td>{row.detail}</td><td>{row.operator}</td><td>{row.channel}</td><td><button className="table-link" onClick={() => setSelected(row)}>详情</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered />}</div></section><Drawer open={!!selected} title="日志详情" subtitle={selected?.time || ""} onClose={() => setSelected(null)}><div className="detail-list"><div><span>会员</span><strong>{selected?.member}</strong></div><div><span>操作类型</span><strong>{selected?.action}</strong></div><div><span>变更内容</span><strong>{selected?.detail}</strong></div><div><span>操作人</span><strong>{selected?.operator}</strong></div><div><span>操作来源</span><strong>{selected?.channel}</strong></div><div><span>日志编号</span><strong>LOG-{selected?.time.replace(/\D/g, "")}</strong></div></div><h3>操作链路</h3><div className="log-timeline"><div><i /><strong>触发变更</strong><small>{selected?.channel}</small></div><div><i /><strong>规则校验通过</strong><small>系统自动完成</small></div><div><i /><strong>数据写入成功</strong><small>{selected?.time}</small></div></div></Drawer></section>;
 }
 
-function SegmentsPage({ onToast }) {
-  const [segments, setSegments] = useState(initialSegments);
+function SegmentsPage({ onToast, data }) {
+  const [segments, setSegments] = useSyncedRows(data?.segments, initialSegments);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -613,8 +640,8 @@ function SegmentsPage({ onToast }) {
   return <section className="business-page"><PageHeader title="会员分组" subtitle="通过规则或人工选择建立可持续运营的会员人群" primaryLabel="新建分组" primaryIcon={IconUsersGroup} onPrimary={() => setDialog(true)} actions={<button className="outline-button" onClick={() => onToast("分群数据已同步") }><IconRefresh size={16} />立即同步</button>} /><StatCards items={[{ label: "分组总数", value: String(segments.length), note: "3 个动态分群", icon: IconUsersGroup }, { label: "已覆盖会员", value: "42,616", note: "覆盖率 33.12%", icon: IconUsers, tone: "green" }, { label: "今日更新", value: "18,942", note: "规则计算完成", icon: IconRefresh, tone: "orange" }, { label: "待执行任务", value: "3", note: "2 个营销任务", icon: IconBolt, tone: "purple" }]} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索分组名称" onReset={() => setQuery("")} onSearch={() => onToast(`已找到 ${rows.length} 个会员分组`)}><select><option>全部类型</option><option>动态分群</option><option>静态分群</option><option>系统分群</option></select><select><option>全部状态</option><option>启用</option><option>停用</option></select></SearchFilters><div className="segment-grid">{rows.map((item) => <article className="segment-card" key={item.id}><div className="segment-card__head"><span className={`segment-icon is-${item.color}`}><IconUsersGroup size={22} /></span><Toggle checked={item.status} label={`${item.name}状态`} onChange={() => setSegments((current) => current.map((segment) => segment.id === item.id ? { ...segment, status: !segment.status } : segment))} /></div><h2>{item.name}</h2><p>{item.desc}</p><div className="segment-card__meta"><span><strong>{item.members.toLocaleString()}</strong> 位会员</span><Pill tone={item.type === "动态分群" ? "blue" : item.type === "系统分群" ? "green" : "purple"}>{item.type}</Pill></div><div className="segment-card__foot"><small>更新：{item.updated}</small><div><button onClick={() => setSelected(item)}><IconEye size={16} /></button><button onClick={() => { setSelected(item); onToast("可在详情中调整分群规则"); }}><IconEdit size={16} /></button></div></div></article>)}{!rows.length && <EmptyFiltered />}</div><FormDialog open={dialog} title="新建会员分组" subtitle="设置人群名称与筛选规则" onClose={() => setDialog(false)} onSave={save} fields={[{ key: "name", label: "分组名称", placeholder: "例如：高潜力新会员" }, { key: "type", label: "分组类型", type: "select", options: ["动态分群", "静态分群"] }, { key: "rule", label: "分组规则", type: "textarea", full: true, placeholder: "例如：注册 30 天内，且累计消费金额 ≥ 300 元" }]} /><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${selected?.type || ""} · ${selected?.members.toLocaleString() || 0} 位会员`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast("分群名单已导出")}>导出名单</button><button className="primary-button" onClick={() => onToast("营销任务创建成功")}>创建营销任务</button></>}><h3>分群规则</h3><div className="rule-builder"><div><span>近 90 天消费金额</span><b>大于等于</b><strong>¥3,000</strong></div><div><span>最近消费时间</span><b>小于等于</b><strong>30 天</strong></div><div><span>会员状态</span><b>等于</b><strong>正常</strong></div></div><h3>人群概览</h3><div className="drawer-metrics"><div><small>会员数</small><strong>{selected?.members.toLocaleString()}</strong></div><div><small>平均客单</small><strong>¥268</strong></div><div><small>复购率</small><strong>68.4%</strong></div></div><h3>关联任务</h3><div className="linked-task"><IconDiscount2 size={18} /><div><strong>高价值会员月度关怀</strong><small>执行中 · 已触达 6,824 人</small></div><IconChevronRight size={16} /></div></Drawer></section>;
 }
 
-function TagsPage({ onToast }) {
-  const [tags, setTags] = useState(initialTags);
+function TagsPage({ onToast, data }) {
+  const [tags, setTags] = useSyncedRows(data?.tags, initialTags);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -633,15 +660,16 @@ function TagScenesPage({ onToast }) {
   return <section className="business-page"><PageHeader title="标签场景分配" subtitle="将标签配置到看板、营销、门店和自动化任务等业务场景" actions={<button className="outline-button" onClick={() => onToast("场景配置已同步到各业务模块")}><IconRefresh size={16} />同步配置</button>} /><div className="scene-grid">{scenes.map((scene) => <article className="scene-card panel" key={scene.id}><div className="scene-card__head"><span><IconAdjustments size={21} /></span><Toggle checked={scene.enabled} label={`${scene.name}状态`} onChange={() => setScenes((current) => current.map((item) => item.id === scene.id ? { ...item, enabled: !item.enabled } : item))} /></div><Pill tone="blue">{scene.module}</Pill><h2>{scene.name}</h2><p>{scene.desc}</p><div className="tag-cloud">{scene.tags.map((tag) => <Pill key={tag} tone="purple">{tag}</Pill>)}{!scene.tags.length && <small>暂未分配标签</small>}</div><button className="scene-card__button" onClick={() => open(scene)}><IconEdit size={16} />配置标签</button></article>)}</div><Drawer open={!!editing} title="配置场景标签" subtitle={`${editing?.module || ""} · ${editing?.name || ""}`} onClose={() => setEditing(null)} footer={<><button className="outline-button" onClick={() => setEditing(null)}>取消</button><button className="primary-button" onClick={save}><IconCheck size={16} />保存分配</button></>}><h3>可用标签</h3><div className="check-list">{available.map((tag) => <label key={tag}><input type="checkbox" checked={draftTags.includes(tag)} onChange={() => setDraftTags((current) => current.includes(tag) ? current.filter((item) => item !== tag) : [...current, tag])} /><span><IconTag size={16} />{tag}</span></label>)}</div><h3>应用说明</h3><p className="drawer-copy">选中的标签将出现在该业务场景的人群筛选器中。取消分配不会删除标签或影响已经保存的历史任务。</p></Drawer></section>;
 }
 
-function TagLogsPage({ onToast }) {
+function TagLogsPage({ onToast, data }) {
   const [query, setQuery] = useState("");
   const [change, setChange] = useState("全部变更");
-  const rows = tagLogRows.filter((row) => (!query || `${row.member}${row.tag}${row.operator}`.includes(query)) && (change === "全部变更" || row.change === change));
+  const sourceRows = rowsFrom(data?.tagLogRows, tagLogRows);
+  const rows = sourceRows.filter((row) => (!query || `${row.member}${row.tag}${row.operator}`.includes(query)) && (change === "全部变更" || row.change === change));
   return <section className="business-page"><PageHeader title="会员标签变更日志" subtitle="查看标签命中、移除和人工调整的完整记录" actions={<button className="outline-button" onClick={() => onToast("标签变更日志已导出")}><IconDatabaseExport size={16} />导出日志</button>} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索会员、标签或操作人" onReset={() => { setQuery(""); setChange("全部变更"); }} onSearch={() => onToast(`已筛选 ${rows.length} 条记录`)}><select value={change} onChange={(event) => setChange(event.target.value)}><option>全部变更</option><option>新增</option><option>移除</option></select><button className="business-date"><IconCalendar size={15} />近 30 天</button></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>标签变更记录</h2><p>自动规则与人工操作均可追溯</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>变更时间</th><th>会员</th><th>标签</th><th>变更类型</th><th>触发来源</th><th>操作人</th><th>结果</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.time}-${row.member}`}><td>{row.time}</td><td><strong>{row.member}</strong></td><td><Pill tone="purple">{row.tag}</Pill></td><td><Pill tone={row.change === "新增" ? "green" : "red"}>{row.change}</Pill></td><td>{row.source}</td><td>{row.operator}</td><td><span className="result-success"><IconCheck size={14} />成功</span></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered />}</div></section></section>;
 }
 
-function ProductsPage({ onToast }) {
-  const [products, setProducts] = useState(initialProducts);
+function ProductsPage({ onToast, data }) {
+  const [products, setProducts] = useSyncedRows(data?.products, initialProducts);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -650,8 +678,8 @@ function ProductsPage({ onToast }) {
   return <section className="business-page"><PageHeader title="商品库" subtitle="维护商品资料、价格、库存和会员销售状态" primaryLabel="新增商品" primaryIcon={IconPackage} onPrimary={() => setDialog(true)} actions={<button className="outline-button" onClick={() => onToast("商品数据已导出")}><IconDatabaseExport size={16} />导出商品</button>} /><StatCards items={[{ label: "商品总数", value: "286", note: "上架 248 个", icon: IconPackage }, { label: "低库存商品", value: "12", note: "需要及时补货", icon: IconBox, tone: "orange" }, { label: "本月动销率", value: "82.6%", note: "环比提升 3.8%", icon: IconChartBar, tone: "green" }, { label: "新品数量", value: "18", note: "近 30 天上新", icon: IconSparkles, tone: "purple" }]} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索商品名称、编码或分类" onReset={() => setQuery("")} onSearch={() => onToast(`已找到 ${rows.length} 个商品`)}><select><option>全部分类</option><option>乳制品</option><option>酸奶</option><option>烘焙</option><option>新品</option></select><select><option>全部状态</option><option>上架</option><option>下架</option><option>低库存</option></select></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>商品列表</h2><p>库存和销售数据每 10 分钟更新</p></div><button className="quiet-button" onClick={() => onToast("库存已刷新")}><IconRefresh size={15} />刷新库存</button></div><div className="table-scroll"><table><thead><tr><th>商品</th><th>分类</th><th>会员价</th><th>库存</th><th>累计销量</th><th>状态</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{rows.map((product) => <tr key={product.id}><td><div className="product-cell"><span><IconPackage size={20} /></span><div><strong>{product.name}</strong><small>{product.id}</small></div></div></td><td><Pill>{product.category}</Pill></td><td><strong>¥{product.price.toFixed(2)}</strong></td><td><span className={product.stock < 500 ? "negative-text" : ""}>{product.stock.toLocaleString()}</span></td><td>{product.sales.toLocaleString()}</td><td><Toggle checked={product.status} label={`${product.name}状态`} onChange={() => setProducts((current) => current.map((item) => item.id === product.id ? { ...item, status: !item.status } : item))} /></td><td>{product.updated}</td><td><button className="table-link" onClick={() => setSelected(product)}>查看</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered />}</div></section><FormDialog open={dialog} title="新增商品" subtitle="创建会员系统中的可售商品" onClose={() => setDialog(false)} onSave={save} fields={[{ key: "name", label: "商品名称", placeholder: "请输入商品名称" }, { key: "category", label: "商品分类", type: "select", options: ["乳制品", "酸奶", "烘焙", "新品"] }, { key: "price", label: "会员价格", type: "number", placeholder: "0.00" }, { key: "stock", label: "初始库存", type: "number", placeholder: "0" }, { key: "desc", label: "商品说明", type: "textarea", full: true, placeholder: "输入商品卖点和适用会员" }]} /><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${selected?.id || ""} · ${selected?.category || ""}`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast("商品资料进入编辑状态")}><IconEdit size={16} />编辑商品</button><button className="primary-button" onClick={() => onToast("已创建商品推荐任务")}>创建推荐任务</button></>}><div className="product-hero"><span><IconPackage size={40} /></span><div><Pill tone={selected?.status ? "green" : "red"}>{selected?.status ? "销售中" : "已下架"}</Pill><strong>会员价 ¥{selected?.price.toFixed(2)}</strong><p>库存 {selected?.stock.toLocaleString()} · 累计销量 {selected?.sales.toLocaleString()}</p></div></div><h3>销售表现</h3><div className="drawer-metrics"><div><small>近 30 天销量</small><strong>2,846</strong></div><div><small>复购率</small><strong>34.8%</strong></div><div><small>好评率</small><strong>98.2%</strong></div></div><h3>偏好人群</h3><div className="tag-cloud"><Pill>高价值会员</Pill><Pill tone="purple">新品偏好</Pill><Pill tone="orange">家庭用户</Pill></div></Drawer></section>;
 }
 
-function OrdersPage({ onToast }) {
-  const [orders, setOrders] = useState(initialOrders);
+function OrdersPage({ onToast, data }) {
+  const [orders, setOrders] = useSyncedRows(data?.orders, initialOrders);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("全部状态");
   const [selected, setSelected] = useState(null);
@@ -670,19 +698,19 @@ function InsightShell({ title, subtitle, stats, children, onToast, period, setPe
   return <section className="business-page insight-page"><PageHeader title={title} subtitle={subtitle} actions={<><div className="segmented insight-period"><button className={period === "7" ? "is-active" : ""} onClick={() => setPeriod("7")}>近7天</button><button className={period === "30" ? "is-active" : ""} onClick={() => setPeriod("30")}>近30天</button><button className={period === "90" ? "is-active" : ""} onClick={() => setPeriod("90")}>近90天</button></div><button className="outline-button" onClick={() => onToast(`${title}报告已加入导出任务`)}><IconDatabaseExport size={16} />导出报告</button></>} /><StatCards items={stats} />{children}</section>;
 }
 
-function FansInsightPage({ onToast }) {
+function FansInsightPage({ onToast, data }) {
   const [period, setPeriod] = useState("7");
-  return <InsightShell title="粉丝洞察" subtitle="分析公众号、小程序和社交渠道的粉丝增长、活跃与转化" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "粉丝总数", value: "286,420", note: "净增长 8.2%", icon: IconUsers }, { label: "今日新增", value: "1,258", note: "取关 98 人", icon: IconUserCheck, tone: "green" }, { label: "活跃粉丝", value: "86,520", note: "活跃率 30.21%", icon: IconActivity, tone: "orange" }, { label: "会员转化率", value: "44.92%", note: "较上期 +2.8%", icon: IconTargetArrow, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>粉丝增长趋势</h2><p>新增、取关与活跃粉丝变化</p></div><div className="chart-legend"><span className="is-blue">新增粉丝</span><span className="is-red">取关</span><span className="is-green">活跃粉丝</span></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={fanTrend}><defs><linearGradient id="fanFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2869f6" stopOpacity={.28}/><stop offset="100%" stopColor="#2869f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Area name="新增粉丝" dataKey="new" stroke="#2869f6" fill="url(#fanFill)" strokeWidth={2}/><Line name="取关" dataKey="lost" stroke="#ef5b6d" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></section><section className="panel insight-side"><div className="business-table-head"><div><h2>渠道构成</h2><p>粉丝来源占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={[{name:"小程序",value:52},{name:"公众号",value:31},{name:"企业微信",value:17}]} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none"><Cell fill="#2869f6"/><Cell fill="#13bda5"/><Cell fill="#7a63e8"/></Pie><Tooltip/></PieChart></ResponsiveContainer><strong>286,420<small>总粉丝数</small></strong></div><div className="channel-list"><div><i className="is-blue"/><span>小程序</span><strong>52%</strong></div><div><i className="is-green"/><span>公众号</span><strong>31%</strong></div><div><i className="is-purple"/><span>企业微信</span><strong>17%</strong></div></div></section></div><div className="insight-cards-row"><article className="panel"><h2>内容互动排行</h2><div className="ranking-list"><div><b>1</b><span>夏日新品会员尝鲜活动</span><strong>12.8%</strong></div><div><b>2</b><span>早餐营养搭配指南</span><strong>10.6%</strong></div><div><b>3</b><span>会员积分兑换提醒</span><strong>8.9%</strong></div></div></article><article className="panel"><h2>粉丝转化漏斗</h2><div className="funnel"><div style={{width:"100%"}}>内容触达 <strong>186,420</strong></div><div style={{width:"82%"}}>产生互动 <strong>92,860</strong></div><div style={{width:"63%"}}>进入商城 <strong>48,320</strong></div><div style={{width:"44%"}}>转化会员 <strong>21,706</strong></div></div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 增长建议</h2><p>小程序新粉的会员转化率最高，建议将公众号高互动粉丝导入小程序新人礼包链路，预计可提升转化 3.2%。</p><button onClick={() => onToast("已生成粉丝转化任务草稿")}>生成运营任务</button></article></div></InsightShell>;
+  return <InsightShell title="粉丝洞察" subtitle="分析公众号、小程序和社交渠道的粉丝增长、活跃与转化" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "粉丝总数", value: "286,420", note: "净增长 8.2%", icon: IconUsers }, { label: "今日新增", value: "1,258", note: "取关 98 人", icon: IconUserCheck, tone: "green" }, { label: "活跃粉丝", value: "86,520", note: "活跃率 30.21%", icon: IconActivity, tone: "orange" }, { label: "会员转化率", value: "44.92%", note: "较上期 +2.8%", icon: IconTargetArrow, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>粉丝增长趋势</h2><p>新增、取关与活跃粉丝变化</p></div><div className="chart-legend"><span className="is-blue">新增粉丝</span><span className="is-red">取关</span><span className="is-green">活跃粉丝</span></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={rowsFrom(data?.fanTrend, fanTrend)}><defs><linearGradient id="fanFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2869f6" stopOpacity={.28}/><stop offset="100%" stopColor="#2869f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Area name="新增粉丝" dataKey="new" stroke="#2869f6" fill="url(#fanFill)" strokeWidth={2}/><Line name="取关" dataKey="lost" stroke="#ef5b6d" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></section><section className="panel insight-side"><div className="business-table-head"><div><h2>渠道构成</h2><p>粉丝来源占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={[{name:"小程序",value:52},{name:"公众号",value:31},{name:"企业微信",value:17}]} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none"><Cell fill="#2869f6"/><Cell fill="#13bda5"/><Cell fill="#7a63e8"/></Pie><Tooltip/></PieChart></ResponsiveContainer><strong>286,420<small>总粉丝数</small></strong></div><div className="channel-list"><div><i className="is-blue"/><span>小程序</span><strong>52%</strong></div><div><i className="is-green"/><span>公众号</span><strong>31%</strong></div><div><i className="is-purple"/><span>企业微信</span><strong>17%</strong></div></div></section></div><div className="insight-cards-row"><article className="panel"><h2>内容互动排行</h2><div className="ranking-list"><div><b>1</b><span>夏日新品会员尝鲜活动</span><strong>12.8%</strong></div><div><b>2</b><span>早餐营养搭配指南</span><strong>10.6%</strong></div><div><b>3</b><span>会员积分兑换提醒</span><strong>8.9%</strong></div></div></article><article className="panel"><h2>粉丝转化漏斗</h2><div className="funnel"><div style={{width:"100%"}}>内容触达 <strong>186,420</strong></div><div style={{width:"82%"}}>产生互动 <strong>92,860</strong></div><div style={{width:"63%"}}>进入商城 <strong>48,320</strong></div><div style={{width:"44%"}}>转化会员 <strong>21,706</strong></div></div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 增长建议</h2><p>小程序新粉的会员转化率最高，建议将公众号高互动粉丝导入小程序新人礼包链路，预计可提升转化 3.2%。</p><button onClick={() => onToast("已生成粉丝转化任务草稿")}>生成运营任务</button></article></div></InsightShell>;
 }
 
-function MemberInsightPage({ onToast }) {
+function MemberInsightPage({ onToast, data }) {
   const [period, setPeriod] = useState("30");
-  return <InsightShell title="会员洞察" subtitle="从生命周期、留存、价值和活跃度理解会员经营质量" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "有效会员", value: "128,670", note: "本月新增 6,782", icon: IconUsers }, { label: "月活会员", value: "52,340", note: "活跃率 40.68%", icon: IconActivity, tone: "green" }, { label: "90 天留存", value: "81.2%", note: "较上期 +3.1%", icon: IconRefresh, tone: "orange" }, { label: "高价值会员", value: "18,620", note: "占比 14.47%", icon: IconTargetArrow, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>会员经营质量趋势</h2><p>活跃率、留存率与价值指数</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={memberTrend}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="month" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Line name="活跃率" dataKey="active" stroke="#2869f6" strokeWidth={3}/><Line name="留存率" dataKey="retention" stroke="#13bda5" strokeWidth={3}/><Line name="价值指数" dataKey="value" stroke="#7a63e8" strokeWidth={3}/></LineChart></ResponsiveContainer></div></section><section className="panel insight-side lifecycle"><div className="business-table-head"><div><h2>生命周期分布</h2><p>当前会员阶段</p></div></div>{[["新会员",18.2,"blue"],["成长期",26.8,"green"],["成熟期",34.5,"purple"],["衰退期",12.6,"orange"],["流失期",7.9,"red"]].map(([label,value,tone])=><div className="lifecycle-row" key={label}><span>{label}</span><i><b className={`is-${tone}`} style={{width:`${value*2.2}%`}}/></i><strong>{value}%</strong></div>)}</section></div><div className="insight-cards-row"><article className="panel"><h2>价值人群迁移</h2><div className="migration-grid"><div><IconArrowUpRight/><strong>2,486</strong><span>升级为高价值</span></div><div><IconArrowDownRight/><strong>1,128</strong><span>价值下降</span></div><div><IconRefresh/><strong>86.4%</strong><span>价值稳定</span></div></div></article><article className="panel"><h2>会员等级结构</h2><div className="simple-bars">{[["普通卡",53],["银卡",20],["金卡",15],["白金卡",8],["钻石卡",4]].map(([label,value])=><div key={label}><span>{label}</span><i><b style={{width:`${value}%`}}/></i><strong>{value}%</strong></div>)}</div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 留存建议</h2><p>银卡会员的升级转化出现停滞，建议面向近 60 天消费 2 次以上人群配置成长加速任务。</p><button onClick={() => onToast("已生成会员成长任务草稿")}>创建成长任务</button></article></div></InsightShell>;
+  return <InsightShell title="会员洞察" subtitle="从生命周期、留存、价值和活跃度理解会员经营质量" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "有效会员", value: "128,670", note: "本月新增 6,782", icon: IconUsers }, { label: "月活会员", value: "52,340", note: "活跃率 40.68%", icon: IconActivity, tone: "green" }, { label: "90 天留存", value: "81.2%", note: "较上期 +3.1%", icon: IconRefresh, tone: "orange" }, { label: "高价值会员", value: "18,620", note: "占比 14.47%", icon: IconTargetArrow, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>会员经营质量趋势</h2><p>活跃率、留存率与价值指数</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={rowsFrom(data?.memberTrend, memberTrend)}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="month" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Line name="活跃率" dataKey="active" stroke="#2869f6" strokeWidth={3}/><Line name="留存率" dataKey="retention" stroke="#13bda5" strokeWidth={3}/><Line name="价值指数" dataKey="value" stroke="#7a63e8" strokeWidth={3}/></LineChart></ResponsiveContainer></div></section><section className="panel insight-side lifecycle"><div className="business-table-head"><div><h2>生命周期分布</h2><p>当前会员阶段</p></div></div>{[["新会员",18.2,"blue"],["成长期",26.8,"green"],["成熟期",34.5,"purple"],["衰退期",12.6,"orange"],["流失期",7.9,"red"]].map(([label,value,tone])=><div className="lifecycle-row" key={label}><span>{label}</span><i><b className={`is-${tone}`} style={{width:`${value*2.2}%`}}/></i><strong>{value}%</strong></div>)}</section></div><div className="insight-cards-row"><article className="panel"><h2>价值人群迁移</h2><div className="migration-grid"><div><IconArrowUpRight/><strong>2,486</strong><span>升级为高价值</span></div><div><IconArrowDownRight/><strong>1,128</strong><span>价值下降</span></div><div><IconRefresh/><strong>86.4%</strong><span>价值稳定</span></div></div></article><article className="panel"><h2>会员等级结构</h2><div className="simple-bars">{[["普通卡",53],["银卡",20],["金卡",15],["白金卡",8],["钻石卡",4]].map(([label,value])=><div key={label}><span>{label}</span><i><b style={{width:`${value}%`}}/></i><strong>{value}%</strong></div>)}</div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 留存建议</h2><p>银卡会员的升级转化出现停滞，建议面向近 60 天消费 2 次以上人群配置成长加速任务。</p><button onClick={() => onToast("已生成会员成长任务草稿")}>创建成长任务</button></article></div></InsightShell>;
 }
 
-function SalesInsightPage({ onToast }) {
+function SalesInsightPage({ onToast, data }) {
   const [period, setPeriod] = useState("7");
-  return <InsightShell title="销售洞察" subtitle="分析会员销售额、订单、客单价、渠道和商品贡献" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "今日销售额", value: "¥176万", note: "较昨日 +18.9%", icon: IconShoppingBag }, { label: "今日订单", value: "2,380", note: "转化率 12.6%", icon: IconFileInvoice, tone: "green" }, { label: "会员客单价", value: "¥73.9", note: "较非会员高 28%", icon: IconChartBar, tone: "orange" }, { label: "复购销售占比", value: "62.4%", note: "环比 +4.1%", icon: IconRefresh, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>销售与订单趋势</h2><p>销售额（万元）与订单量变化</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={salesTrend}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Bar name="销售额（万元）" dataKey="sales" fill="#2869f6" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section><section className="panel insight-side"><div className="business-table-head"><div><h2>渠道销售贡献</h2><p>销售额占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={[{name:"小程序",value:46},{name:"门店",value:38},{name:"公众号",value:11},{name:"其他",value:5}]} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none"><Cell fill="#2869f6"/><Cell fill="#13bda5"/><Cell fill="#7a63e8"/><Cell fill="#f3a51a"/></Pie><Tooltip/></PieChart></ResponsiveContainer><strong>¥1,026万<small>近 7 天销售</small></strong></div><div className="channel-list"><div><i className="is-blue"/><span>小程序商城</span><strong>46%</strong></div><div><i className="is-green"/><span>门店收银</span><strong>38%</strong></div><div><i className="is-purple"/><span>公众号商城</span><strong>11%</strong></div></div></section></div><div className="insight-cards-row"><article className="panel"><h2>热销商品排行</h2><div className="ranking-list"><div><b>1</b><span>一鸣真鲜奶 950ml</span><strong>¥186万</strong></div><div><b>2</b><span>原味风味酸奶 200g</span><strong>¥142万</strong></div><div><b>3</b><span>经典奶香吐司</span><strong>¥98万</strong></div></div></article><article className="panel"><h2>门店销售排行</h2><div className="ranking-list"><div><b>1</b><span>杭州西湖店</span><strong>¥68.4万</strong></div><div><b>2</b><span>宁波鄞州店</span><strong>¥56.2万</strong></div><div><b>3</b><span>温州鹿城店</span><strong>¥49.8万</strong></div></div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 销售建议</h2><p>周末小程序客单价显著高于工作日，建议将高价值会员新品组合券安排在周五晚间触达。</p><button onClick={() => onToast("已生成销售提升任务草稿")}>生成提升方案</button></article></div></InsightShell>;
+  return <InsightShell title="销售洞察" subtitle="分析会员销售额、订单、客单价、渠道和商品贡献" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "今日销售额", value: "¥176万", note: "较昨日 +18.9%", icon: IconShoppingBag }, { label: "今日订单", value: "2,380", note: "转化率 12.6%", icon: IconFileInvoice, tone: "green" }, { label: "会员客单价", value: "¥73.9", note: "较非会员高 28%", icon: IconChartBar, tone: "orange" }, { label: "复购销售占比", value: "62.4%", note: "环比 +4.1%", icon: IconRefresh, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>销售与订单趋势</h2><p>销售额（万元）与订单量变化</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={rowsFrom(data?.salesTrend, salesTrend)}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Bar name="销售额（万元）" dataKey="sales" fill="#2869f6" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section><section className="panel insight-side"><div className="business-table-head"><div><h2>渠道销售贡献</h2><p>销售额占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={[{name:"小程序",value:46},{name:"门店",value:38},{name:"公众号",value:11},{name:"其他",value:5}]} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none"><Cell fill="#2869f6"/><Cell fill="#13bda5"/><Cell fill="#7a63e8"/><Cell fill="#f3a51a"/></Pie><Tooltip/></PieChart></ResponsiveContainer><strong>¥1,026万<small>近 7 天销售</small></strong></div><div className="channel-list"><div><i className="is-blue"/><span>小程序商城</span><strong>46%</strong></div><div><i className="is-green"/><span>门店收银</span><strong>38%</strong></div><div><i className="is-purple"/><span>公众号商城</span><strong>11%</strong></div></div></section></div><div className="insight-cards-row"><article className="panel"><h2>热销商品排行</h2><div className="ranking-list"><div><b>1</b><span>一鸣真鲜奶 950ml</span><strong>¥186万</strong></div><div><b>2</b><span>原味风味酸奶 200g</span><strong>¥142万</strong></div><div><b>3</b><span>经典奶香吐司</span><strong>¥98万</strong></div></div></article><article className="panel"><h2>门店销售排行</h2><div className="ranking-list"><div><b>1</b><span>杭州西湖店</span><strong>¥68.4万</strong></div><div><b>2</b><span>宁波鄞州店</span><strong>¥56.2万</strong></div><div><b>3</b><span>温州鹿城店</span><strong>¥49.8万</strong></div></div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 销售建议</h2><p>周末小程序客单价显著高于工作日，建议将高价值会员新品组合券安排在周五晚间触达。</p><button onClick={() => onToast("已生成销售提升任务草稿")}>生成提升方案</button></article></div></InsightShell>;
 }
 
 const domainConfigs = {
@@ -750,11 +778,11 @@ function DomainFeaturePage({ pageId, onToast }) {
   return <section className="business-page"><PageHeader title={config.label} subtitle={config.description} primaryLabel={config.action} primaryIcon={FeatureIcon} onPrimary={primaryAction} actions={<button className="outline-button" onClick={() => onToast(`${config.label}数据已刷新`)}><IconRefresh size={16}/>刷新数据</button>} /><StatCards items={[{ label: `${config.label}总数`, value: String(records.length + 12), note: "较上周新增 3 项", icon: FeatureIcon }, { label: "已启用", value: String(records.filter((record) => record.enabled).length + 8), note: "运行状态正常", icon: IconCheck, tone: "green" }, { label: "今日处理", value: "286", note: "完成率 96.8%", icon: IconActivity, tone: "orange" }, { label: "待处理", value: "3", note: "需要管理员关注", icon: IconClock, tone: "purple" }]} /><SearchFilters query={query} onQuery={setQuery} placeholder={`搜索${config.label}名称、负责人或范围`} onReset={() => { setQuery(""); setStatus("全部状态"); }} onSearch={() => onToast(`已找到 ${rows.length} 条${config.label}数据`)}><select value={status} onChange={(event) => setStatus(event.target.value)}><option>全部状态</option><option>已启用</option><option>运行中</option><option>待审核</option></select><select><option>全部负责人</option><option>超级管理员</option><option>会员运营组</option><option>系统自动</option></select></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>{config.label}列表</h2><p>数据来自 {config.domain}，点击名称查看详情和执行配置</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>名称</th><th>业务范围</th><th>负责人</th><th>状态</th><th>启用</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{rows.map((record) => <tr key={record.id}><td><button className="table-link" onClick={() => setSelected(record)}>{record.name}</button></td><td>{record.scope}</td><td>{record.owner}</td><td><Pill tone={record.status === "已启用" ? "green" : record.status === "待审核" ? "orange" : "blue"}>{record.status}</Pill></td><td><Toggle checked={record.enabled} label={`${record.name}状态`} onChange={() => setRecords((current) => current.map((item) => item.id === record.id ? { ...item, enabled: !item.enabled, status: item.enabled ? "已停用" : "已启用" } : item))}/></td><td>{record.updated}</td><td><button className="table-link" onClick={() => setSelected(record)}>查看</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered/>}</div></section><FormDialog open={dialog} title={config.action} subtitle={`在${config.domain}中创建新的${config.label}配置`} onClose={() => setDialog(false)} onSave={save} fields={[{ key: "name", label: `${config.label}名称`, placeholder: `请输入${config.label}名称` }, { key: "owner", label: "负责人", type: "select", options: ["超级管理员", "会员运营组", "门店运营组"] }, { key: "scope", label: "业务范围", type: "select", options: ["全部会员", "重点人群", "指定组织"] }, { key: "description", label: "配置说明", type: "textarea", full: true, placeholder: "补充业务目标、执行规则和注意事项" }]} /><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${config.domain} · ${config.group}`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast(`${selected?.name}已复制`)}>复制配置</button><button className="primary-button" onClick={() => onToast(`${selected?.name}已执行`)}>立即执行</button></>}><div className="drawer-insight"><IconSparkles size={19}/><p>{config.description}。当前配置可继续编辑范围、规则、通知和执行计划。</p></div><h3>基础信息</h3><div className="detail-list"><div><span>业务范围</span><strong>{selected?.scope}</strong></div><div><span>负责人</span><strong>{selected?.owner}</strong></div><div><span>当前状态</span><strong>{selected?.status}</strong></div><div><span>最近更新</span><strong>{selected?.updated}</strong></div></div><h3>执行配置</h3><div className="tag-cloud"><Pill>编辑规则</Pill><Pill tone="green">选择对象</Pill><Pill tone="orange">配置通知</Pill><Pill tone="purple">查看记录</Pill></div></Drawer></section>;
 }
 
-export function BusinessPageRouter({ activePage, onToast, onAction }) {
-  const props = { onToast, onAction };
+export function BusinessPageRouter({ activePage, onToast, onAction, data }) {
+  const props = { onToast, onAction, data };
   if (domainConfigs[activePage]) return <DomainOverviewPage pageId={activePage} onToast={onToast} />;
-  if (activePage.startsWith("claw-")) return <ClawWorkspacePage activePage={activePage} onToast={onToast} />;
-  if (activePage === "wechat-chat") return <WechatChatPage onToast={onToast} />;
+  if (activePage.startsWith("claw-")) return <ClawWorkspacePage activePage={activePage} onToast={onToast} data={data} />;
+  if (activePage === "wechat-chat") return <WechatChatPage onToast={onToast} data={data} />;
   if (FEATURE_PAGE_CONFIG[activePage]) return <DomainFeaturePage key={activePage} pageId={activePage} onToast={onToast} />;
   switch (activePage) {
     case "high-value": return <HighValuePage {...props} />;

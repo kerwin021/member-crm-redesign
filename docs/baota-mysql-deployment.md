@@ -21,6 +21,9 @@ database/mysql/02_seed_demo.sql        # 与当前原型一致的演示数据
 deploy/baota/mysql/docker-compose.yml  # 宝塔 Docker Compose 部署 MySQL
 deploy/baota/mysql/.env.example        # 环境变量模板
 deploy/baota/mysql/README.md           # 上传到宝塔后的最短执行说明
+server/api.py                          # 前端读取真实数据的 API 服务
+server/.env.example                    # API 数据库连接环境变量模板
+server/requirements.txt                # API Python 依赖
 ```
 
 ## 设计说明
@@ -149,6 +152,24 @@ docker exec -it member-crm-mysql mysql -u member_crm_app -p member_crm -e "selec
 - 会员手机号只保存 `phone_hash` 和 `phone_mask`，明文手机号应由业务服务加密存储或托管在专门的敏感数据服务中。
 - 每日执行 `mysqldump --single-transaction member_crm` 备份，并把备份同步到非本机存储。
 - 上线后建议把 `02_seed_demo.sql` 只用于测试环境，生产环境改走正式导入流程。
+
+## 前端真实数据 API
+
+前端不直接连接 MySQL，而是请求 API：
+
+- 数据接口：`GET /api/app-data`
+- 健康检查：`GET /api/health`
+- 本地默认端口：`127.0.0.1:8787`
+
+宝塔推荐部署方式：
+
+1. 在项目目录创建 `server/.env`，参考 `server/.env.example` 配置 MySQL 连接。
+2. 安装 API 依赖：`python3 -m pip install -r server/requirements.txt`。
+3. 启动 API：`python3 server/api.py`。
+4. 在宝塔站点中把 `/api` 反向代理到 `http://127.0.0.1:8787`。
+5. 前端正常构建并部署，页面会从 `/api/app-data` 读取数据库数据。
+
+如果前端部署在 GitHub Pages 这类纯静态环境，需要构建时设置 `VITE_API_BASE_URL=https://你的API域名`，否则静态页面无法访问宝塔内网 API。
 
 ## 后端连接串
 
