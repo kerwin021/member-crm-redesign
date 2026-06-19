@@ -4,7 +4,8 @@
 
 - Repository: https://github.com/kerwin021/member-crm-redesign
 - Live preview: https://kerwin021.github.io/member-crm-redesign/ (static fallback unless an API base URL is configured)
-- Latest main commit: `68d61e6`
+- MySQL API implementation commit: `68d61e6`
+- For the latest main commit, run `git log -1 --oneline`.
 - Latest known gh-pages commit: `bcd6d51` (not updated in the MySQL API pass)
 
 ## Current State
