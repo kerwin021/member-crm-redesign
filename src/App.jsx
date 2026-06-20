@@ -57,66 +57,6 @@ import { BusinessPageRouter } from "./BusinessPages.jsx";
 import { useAppData } from "./data/useAppData.js";
 import { DOMAIN_NAV, DOMAIN_NAVIGATION, DOMAIN_PAGES, PAGE_META } from "./navigationConfig.jsx";
 
-const trends30 = [
-  { day: "05-15", members: 520, rate: 9 },
-  { day: "05-18", members: 910, rate: 13 },
-  { day: "05-21", members: 430, rate: 6 },
-  { day: "05-24", members: 1280, rate: 16 },
-  { day: "05-27", members: 780, rate: 12 },
-  { day: "05-30", members: 1620, rate: 21 },
-  { day: "06-02", members: 940, rate: 14 },
-  { day: "06-05", members: 1780, rate: 23 },
-  { day: "06-08", members: 1140, rate: 18 },
-  { day: "06-11", members: 760, rate: 10 },
-  { day: "06-14", members: 1258, rate: 12.31 },
-];
-
-const trends90 = [
-  { day: "03-16", members: 630, rate: 7 },
-  { day: "03-26", members: 920, rate: 10 },
-  { day: "04-05", members: 1180, rate: 13 },
-  { day: "04-15", members: 890, rate: 9 },
-  { day: "04-25", members: 1460, rate: 17 },
-  { day: "05-05", members: 1220, rate: 15 },
-  { day: "05-15", members: 1590, rate: 19 },
-  { day: "05-25", members: 1320, rate: 15 },
-  { day: "06-04", members: 1890, rate: 24 },
-  { day: "06-14", members: 1258, rate: 12.31 },
-];
-
-const levels = [
-  { name: "普通卡", value: 68452, color: "#2869f6", ratio: "53.18%" },
-  { name: "银卡", value: 26315, color: "#11bfa8", ratio: "20.44%" },
-  { name: "金卡", value: 18964, color: "#f6a817", ratio: "14.74%" },
-  { name: "白金卡", value: 9842, color: "#f36f8e", ratio: "7.65%" },
-  { name: "钻石卡", value: 5097, color: "#7b61e8", ratio: "3.96%" },
-];
-
-const portraitBars = [
-  { name: "18-24", value: 14 },
-  { name: "25-34", value: 40 },
-  { name: "35-44", value: 27 },
-  { name: "45-54", value: 12 },
-  { name: "55+", value: 7 },
-];
-
-const sourceRows = [
-  ["小程序商城", "12,456", 46.37, "blue"],
-  ["门店扫码注册", "6,782", 25.24, "green"],
-  ["公众号", "4,215", 15.68, "orange"],
-  ["员工邀请", "2,156", 8.03, "purple"],
-  ["其他渠道", "1,234", 4.58, "gray"],
-];
-
-const members = [
-  { id: "M202606130021", name: "林晓然", phone: "138****3026", store: "杭州西湖店", level: "钻石卡", source: "小程序商城", date: "2026-06-13", status: "活跃" },
-  { id: "M202606120118", name: "周子墨", phone: "186****7913", store: "宁波鄞州店", level: "金卡", source: "门店扫码", date: "2026-06-12", status: "活跃" },
-  { id: "M202606110086", name: "陈安宁", phone: "157****6088", store: "温州鹿城店", level: "银卡", source: "公众号", date: "2026-06-11", status: "待唤醒" },
-  { id: "M202606100035", name: "吴嘉言", phone: "139****4251", store: "杭州滨江店", level: "普通卡", source: "员工邀请", date: "2026-06-10", status: "活跃" },
-  { id: "M202606090242", name: "沈清禾", phone: "177****1638", store: "绍兴越城店", level: "白金卡", source: "小程序商城", date: "2026-06-09", status: "冻结" },
-  { id: "M202606080157", name: "许星遥", phone: "159****8332", store: "台州椒江店", level: "金卡", source: "门店扫码", date: "2026-06-08", status: "活跃" },
-];
-
 function formatNumber(value) {
   return new Intl.NumberFormat("zh-CN").format(value);
 }
@@ -212,17 +152,17 @@ function MetricCard({ icon: Icon, label, value, delta, color }) {
 }
 
 function SummaryStrip({ data }) {
-  const summary = data?.summary || {};
+  const summary = data.summary;
   return (
     <section className="summary-strip">
-      <MetricCard icon={IconUsers} label="会员总数" value={summary.totalMembers || "128,670"} delta={summary.totalDelta || "2.35%"} color="blue" />
-      <MetricCard icon={IconCalendar} label="昨日新增" value={summary.yesterdayNew || "1,258"} delta={summary.yesterdayDelta || "8.42%"} color="green" />
-      <MetricCard icon={IconCalendar} label="本月新增" value={summary.monthNew || "6,782"} delta={summary.monthDelta || "12.31%"} color="orange" />
-      <MetricCard icon={IconTrendingUp} label="本季新增" value={summary.quarterNew || "18,934"} delta={summary.quarterDelta || "15.62%"} color="gold" />
+      <MetricCard icon={IconUsers} label="会员总数" value={summary.totalMembers} delta={summary.totalDelta} color="blue" />
+      <MetricCard icon={IconCalendar} label="昨日新增" value={summary.yesterdayNew} delta={summary.yesterdayDelta} color="green" />
+      <MetricCard icon={IconCalendar} label="本月新增" value={summary.monthNew} delta={summary.monthDelta} color="orange" />
+      <MetricCard icon={IconTrendingUp} label="本季新增" value={summary.quarterNew} delta={summary.quarterDelta} color="gold" />
       <div className="growth-metrics">
-        <div><span>日环比增长率</span><strong>{summary.dailyGrowth || "+2.35%"}</strong></div>
-        <div><span>月环比增长率</span><strong>{summary.monthlyGrowth || "+12.31%"}</strong></div>
-        <div><span>季环比增长率</span><strong>{summary.quarterlyGrowth || "+15.62%"}</strong></div>
+        <div><span>日环比增长率</span><strong>{summary.dailyGrowth}</strong></div>
+        <div><span>月环比增长率</span><strong>{summary.monthlyGrowth}</strong></div>
+        <div><span>季环比增长率</span><strong>{summary.quarterlyGrowth}</strong></div>
       </div>
     </section>
   );
@@ -239,15 +179,15 @@ function ChartTooltip({ active, payload, label }) {
 }
 
 function TrendPanel({ period, onPeriod, onToast, data }) {
-  const chartRows = period === "30" ? (data?.trends30?.length ? data.trends30 : trends30) : (data?.trends90?.length ? data.trends90 : trends90);
-  const periodLabel = data?.periodLabel || "2026-05-15 至 2026-06-14";
-  const periodSummary = data?.periodSummary || {};
-  const periodTotal = periodSummary.total || data?.sourceTotal || "26,843";
-  const comparison = periodSummary.comparison || "+12.31%";
+  const chartRows = period === "30" ? data.trends30 : data.trends90;
+  const periodLabel = data.periodLabel;
+  const periodSummary = data.periodSummary;
+  const periodTotal = periodSummary.total;
+  const comparison = periodSummary.comparison;
   const comparisonClass = comparison.startsWith("-") ? "negative" : "positive";
-  const dailyAverage = periodSummary.dailyAverage || "1,790";
-  const peakMembers = periodSummary.peakMembers || "2,356";
-  const peakDay = periodSummary.peakDay || "06-06";
+  const dailyAverage = periodSummary.dailyAverage;
+  const peakMembers = periodSummary.peakMembers;
+  const peakDay = periodSummary.peakDay;
   return (
     <section className="panel trend-panel">
       <div className="panel__head panel__head--wrap">
@@ -289,8 +229,8 @@ function TrendPanel({ period, onPeriod, onToast, data }) {
 }
 
 function LevelPanel({ data }) {
-  const levelRows = data?.levels?.length ? data.levels : levels;
-  const totalLabel = data?.totalMembersLabel || "128,670";
+  const levelRows = data.levels;
+  const totalLabel = data.totalMembersLabel;
   return (
     <section className="panel level-panel">
       <div className="panel__head">
@@ -325,9 +265,9 @@ function LevelPanel({ data }) {
 }
 
 function SourcePanel({ data }) {
-  const rows = data?.sourceRows?.length ? data.sourceRows : sourceRows;
-  const total = data?.sourceTotal || "26,843";
-  const periodLabel = data?.periodLabel || "2026-05-15 至 2026-06-14";
+  const rows = data.sourceRows;
+  const total = data.sourceTotal;
+  const periodLabel = data.periodLabel;
   return (
     <section className="panel source-panel">
       <div className="panel__head">
@@ -358,12 +298,12 @@ function MiniDonut({ data, colors }) {
 }
 
 function PortraitPanel({ data }) {
-  const gender = data?.portrait?.gender?.length ? data.portrait.gender : [{ name: "男", value: 61.32 }, { name: "女", value: 38.68 }];
-  const active = data?.portrait?.active?.length ? data.portrait.active : [{ name: "高活跃", value: 32.45 }, { name: "中活跃", value: 41.23 }, { name: "低活跃", value: 26.32 }];
-  const valueData = data?.portrait?.valueData?.length ? data.portrait.valueData : [{ name: "高价值", value: 18.62 }, { name: "中价值", value: 43.28 }, { name: "低价值", value: 38.1 }];
-  const city = data?.portrait?.city?.length ? data.portrait.city : [{ name: "企业职员", value: 42.18 }, { name: "个体经营", value: 18.72 }, { name: "学生", value: 12.35 }, { name: "自由职业", value: 8.96 }];
-  const platform = data?.portrait?.platform?.length ? data.portrait.platform : [{ name: "微信小程序", value: 72.45 }, { name: "公众号", value: 18.37 }, { name: "APP", value: 9.18 }];
-  const ageRows = data?.portraitBars?.length ? data.portraitBars : portraitBars;
+  const gender = data.portrait.gender;
+  const active = data.portrait.active;
+  const valueData = data.portrait.valueData;
+  const city = data.portrait.city;
+  const platform = data.portrait.platform;
+  const ageRows = data.portraitBars;
   const dots = ["dot-blue", "dot-purple", "dot-green", "dot-teal"];
   return (
     <section className="panel portrait-panel">
@@ -379,14 +319,14 @@ function PortraitPanel({ data }) {
         <article className="mini-card">
           <h3>年龄分布</h3>
           <div className="age-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={ageRows}><Bar dataKey="value" radius={[5, 5, 2, 2]}>{ageRows.map((entry, i) => <Cell key={entry.name} fill={["#8cb6ff", "#4e79f5", "#7466ec", "#9b8cf6", "#c5d3ff"][i]} />)}</Bar><XAxis dataKey="name" hide /><Tooltip /></BarChart></ResponsiveContainer></div>
-          <div className="age-labels"><span>{ageRows[0]?.name || "25-34"}</span><strong>{ageRows[0]?.value || 39.75}%</strong></div>
+          <div className="age-labels"><span>{ageRows[0]?.name || "暂无数据"}</span><strong>{ageRows[0]?.value ?? 0}%</strong></div>
         </article>
         <article className="mini-card">
           <h3>活跃度分析</h3>
           <div className="mini-card__body"><MiniDonut data={active} colors={["#21b467", "#15c3aa", "#8b76ec"]} /><ul>{active.map((item, index) => <li key={item.name}><i className={["dot-green", "dot-teal", "dot-purple"][index % 3]} />{item.name} <strong>{item.value}%</strong></li>)}</ul></div>
         </article>
         <article className="mini-card occupation-card">
-          <h3>{data?.portrait?.city?.length ? "城市分布" : "职业分布"}</h3>
+          <h3>城市分布</h3>
           {city.map((item) => <div className="occupation-row" key={item.name}><span>{item.name}</span><i><b style={{ width: `${Math.min(item.value * 2, 100)}%` }} /></i><strong>{item.value}%</strong></div>)}
         </article>
         <article className="mini-card">
@@ -404,18 +344,13 @@ function PortraitPanel({ data }) {
 }
 
 function ValueQuadrant({ data }) {
-  const quadrant = data?.valueQuadrant || {};
-  const boxes = quadrant.boxes?.length ? quadrant.boxes : [
-    { title: "重要保持", value: "8,342人", note: "24%", className: "keep", previous: "7,125", spend: "842,635 元" },
-    { title: "重要发展", value: "6,175人", note: "18%", className: "grow", previous: "5,246", spend: "842,635 元" },
-    { title: "一般保持", value: "7,856人", note: "30.36%", className: "normal", previous: "5,246", spend: "842,635 元" },
-    { title: "低价值挽回", value: "3,470人", note: "13.46%", className: "winback", previous: "5,246", spend: "842,635 元" },
-  ];
+  const quadrant = data.valueQuadrant;
+  const boxes = quadrant.boxes;
   return (
     <section className="panel quadrant-panel">
       <div className="panel__head panel__head--compact">
-        <div><h2>会员价值分布象限</h2><p>截止日期：{quadrant.cutoffLabel || "2026-06-14"} · {quadrant.compareLabel || "对比周期 2026-05-15 至 2026-06-14"}</p></div>
-        <div className="quadrant-totals"><span>上期会员数 <strong>{quadrant.previousMembers || "22,356"}</strong></span><span>当前会员数 <strong>{quadrant.currentMembers || "25,843"}</strong></span><span>当前消费额 <strong>{quadrant.salesTotal || "1,562,748 元"}</strong></span></div>
+        <div><h2>会员价值分布象限</h2><p>截止日期：{quadrant.cutoffLabel} · {quadrant.compareLabel}</p></div>
+        <div className="quadrant-totals"><span>上期会员数 <strong>{quadrant.previousMembers}</strong></span><span>当前会员数 <strong>{quadrant.currentMembers}</strong></span><span>当前消费额 <strong>{quadrant.salesTotal}</strong></span></div>
       </div>
       <div className="quadrant-grid">
         {boxes.map((box) => <article className={`quadrant-box is-${box.className}`} key={box.title}><div><span>{box.title}</span><strong>{box.value}</strong><small>{box.note}</small></div><p>上期会员数：{box.previous}<br />累计消费额：{box.spend}</p></article>)}
@@ -467,15 +402,18 @@ function FilterField({ label, placeholder, icon: Icon = IconSearch, value, onCha
 function MembersPage({ onToast, onAction, data }) {
   const [query, setQuery] = useState("");
   const [level, setLevel] = useState("全部等级");
+  const [store, setStore] = useState("全部门店");
   const [selected, setSelected] = useState([]);
-  const memberRows = data?.members?.length ? data.members : members;
-  const levelRows = data?.dashboard?.levels?.length ? data.dashboard.levels : levels;
-  const totalLabel = data?.dashboard?.totalMembersLabel || "128,670";
+  const memberRows = data.members;
+  const levelRows = data.dashboard.levels;
+  const stores = data.filterOptions.stores;
+  const totalLabel = data.dashboard.totalMembersLabel;
   const visible = useMemo(() => memberRows.filter((member) => {
     const hitText = !query || `${member.id}${member.name}${member.phone}${member.store}`.includes(query);
     const hitLevel = level === "全部等级" || member.level === level;
-    return hitText && hitLevel;
-  }), [query, level, memberRows]);
+    const hitStore = store === "全部门店" || member.store === store;
+    return hitText && hitLevel && hitStore;
+  }), [query, level, store, memberRows]);
   const allSelected = visible.length > 0 && visible.every((item) => selected.includes(item.id));
   const toggleAll = () => setSelected(allSelected ? selected.filter((id) => !visible.some((item) => item.id === id)) : [...new Set([...selected, ...visible.map((item) => item.id)])]);
   const toggleOne = (id) => setSelected((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id]);
@@ -489,10 +427,10 @@ function MembersPage({ onToast, onAction, data }) {
         <div className="filter-grid">
           <FilterField label="快速搜索" placeholder="会员编码、名称、手机号或门店" value={query} onChange={(event) => setQuery(event.target.value)} />
           <label className="filter-field"><span>会员等级</span><div><IconIdBadge2 size={16} /><select value={level} onChange={(event) => setLevel(event.target.value)}><option>全部等级</option>{levelRows.map((item) => <option key={item.name}>{item.name}</option>)}</select></div></label>
-          <label className="filter-field"><span>注册日期</span><div><IconCalendar size={16} /><input value="2026-06-01 至 2026-06-14" readOnly /></div></label>
-          <label className="filter-field"><span>归属门店</span><div><IconBuildingStore size={16} /><select><option>全部门店</option><option>杭州西湖店</option><option>宁波鄞州店</option></select></div></label>
+          <label className="filter-field"><span>注册日期</span><div><IconCalendar size={16} /><input value={data.filterOptions.registrationRange} readOnly /></div></label>
+          <label className="filter-field"><span>归属门店</span><div><IconBuildingStore size={16} /><select value={store} onChange={(event) => setStore(event.target.value)}><option>全部门店</option>{stores.map((item) => <option key={item}>{item}</option>)}</select></div></label>
         </div>
-        <div className="filter-actions"><button className="outline-button" onClick={() => { setQuery(""); setLevel("全部等级"); }}><IconRefresh size={16} /> 重置</button><button className="primary-button" onClick={() => onToast(`已找到 ${visible.length} 位会员`)}><IconSearch size={16} /> 查询</button><button className="text-button"><IconFilter size={16} /> 高级筛选条件</button></div>
+        <div className="filter-actions"><button className="outline-button" onClick={() => { setQuery(""); setLevel("全部等级"); setStore("全部门店"); }}><IconRefresh size={16} /> 重置</button><button className="primary-button" onClick={() => onToast(`已找到 ${visible.length} 位会员`)}><IconSearch size={16} /> 查询</button><button className="text-button"><IconFilter size={16} /> 高级筛选条件</button></div>
       </section>
       <section className="panel member-table-panel">
         <div className="table-toolbar">
@@ -511,12 +449,6 @@ function MembersPage({ onToast, onAction, data }) {
     </section>
   );
 }
-
-const insightCards = [
-  { title: "新增趋势上升", desc: "本月新增会员 6,782 人，较上月 ↑ 12.31%，主要增长来自小程序商城。", tone: "green", icon: IconTrendingUp },
-  { title: "高价值会员占比偏低", desc: "高价值会员占 18.62%，低于行业均值 25%，建议加强会员分层运营。", tone: "orange", icon: IconActivity },
-  { title: "会员活跃度下降", desc: "低活跃会员占比 26.32%，较上周期 ↑ 3.18%，建议触达唤醒。", tone: "purple", icon: IconTrendingDown },
-];
 
 const DEFAULT_FAB_SIZE = { width: 118, height: 42 };
 
@@ -538,16 +470,12 @@ function AIPanel({ open, onToggle, onToast, onAction, data }) {
   const [prompt, setPrompt] = useState("");
   const [fabPosition, setFabPosition] = useState(getInitialFabPosition);
   const dragState = useRef({ active: false, moved: false, suppressClick: false });
-  const aiInsightCards = (data?.clawInsightCards?.length ? data.clawInsightCards : insightCards).map((item, index) => ({
+  const aiInsightCards = data.clawInsightCards.map((item, index) => ({
     ...item,
     icon: item.icon || [IconTrendingUp, IconActivity, IconTrendingDown][index] || IconSparkles,
   }));
-  const aiSuggestionCards = data?.clawSuggestionCards?.length ? data.clawSuggestionCards : [
-    { title: "针对重要发展会员", desc: "推送成长型会员礼包，提升升级效率。", action: "去执行" },
-    { title: "优化会员等级权益", desc: "升级银卡 / 金卡权益激励，促进成长。", action: "去配置" },
-    { title: "沉睡会员唤醒计划", desc: "基于最后活跃时间触达，提升复购。", action: "去创建" },
-  ];
-  const aiPromptChips = data?.clawPromptTemplates?.length ? data.clawPromptTemplates.map((item) => item.prompt) : ["本月新增会员来源占比如何？", "近 7 天新增趋势怎么样？", "高价值会员的消费特征是什么？", "哪些渠道带来的会员质量最高？"];
+  const aiSuggestionCards = data.clawSuggestionCards;
+  const aiPromptChips = data.clawPromptTemplates.map((item) => item.prompt);
   const moveFab = (clientX, clientY) => {
     const state = dragState.current;
     if (!state.active) return;
@@ -635,19 +563,34 @@ function AIPanel({ open, onToggle, onToast, onAction, data }) {
   );
 }
 
-function ActionModal({ action, onClose, onToast }) {
+function ActionModal({ action, onClose, onToast, data }) {
   if (!action) return null;
   const isMember = action === "新增会员";
+  const stores = data.filterOptions.stores;
+  const levels = data.dashboard.levels.map((level) => level.name);
+  const segments = data.segments.map((segment) => segment.name);
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={onClose}>
       <div className="modal" role="dialog" aria-modal="true" onMouseDown={(event) => event.stopPropagation()}>
         <div className="modal__head"><div><span className="modal-icon">{isMember ? <IconUserPlus size={21} /> : action === "创建分群" ? <IconUsersGroup size={21} /> : <IconBolt size={21} />}</span><div><h2>{action}</h2><p>{isMember ? "录入基础资料并创建会员档案" : "完成配置后即可提交执行"}</p></div></div><button className="icon-button" onClick={onClose}><IconX size={19} /></button></div>
         <div className="modal__body">
-          {isMember ? <><label>会员名称<input placeholder="请输入会员名称" /></label><label>手机号码<input placeholder="请输入手机号码" /></label><label>归属门店<select><option>杭州西湖店</option><option>宁波鄞州店</option></select></label><label>初始等级<select><option>普通卡</option><option>银卡</option></select></label></> : <><label>任务名称<input placeholder={`请输入${action}任务名称`} /></label><label>目标会员<select><option>高价值活跃会员</option><option>近 30 天新增会员</option><option>低活跃待唤醒会员</option></select></label><label className="modal__full">执行说明<textarea placeholder="补充本次任务的目标和说明" /></label></>}
+          {isMember ? <><label>会员名称<input placeholder="请输入会员名称" /></label><label>手机号码<input placeholder="请输入手机号码" /></label><label>归属门店<select>{stores.map((store) => <option key={store}>{store}</option>)}</select></label><label>初始等级<select>{levels.map((level) => <option key={level}>{level}</option>)}</select></label></> : <><label>任务名称<input placeholder={`请输入${action}任务名称`} /></label><label>目标会员<select>{segments.map((segment) => <option key={segment}>{segment}</option>)}</select></label><label className="modal__full">执行说明<textarea placeholder="补充本次任务的目标和说明" /></label></>}
         </div>
         <div className="modal__footer"><button className="outline-button" onClick={onClose}>取消</button><button className="primary-button" onClick={() => { onToast(`${action}任务已保存`); onClose(); }}>确认保存</button></div>
       </div>
     </div>
+  );
+}
+
+function DatabaseState({ status, error, onRetry }) {
+  const loading = status === "loading";
+  return (
+    <main className="database-state">
+      <span><IconDatabaseExport size={30} /></span>
+      <h1>{loading ? "正在连接 MySQL" : "MySQL 数据加载失败"}</h1>
+      <p>{loading ? "系统只显示数据库实时数据，请稍候。" : error?.message || "请检查数据库和 API 配置。"}</p>
+      {!loading && <button className="primary-button" onClick={onRetry}><IconRefresh size={16} />重新连接</button>}
+    </main>
   );
 }
 
@@ -661,33 +604,23 @@ export function App() {
   const [toast, setToast] = useState("");
   const [action, setAction] = useState("");
   const toastTimeout = useRef(null);
-  const fallbackData = useMemo(() => ({
-    dashboard: {
-      summary: {
-        totalMembers: "128,670",
-        totalDelta: "2.35%",
-        yesterdayNew: "1,258",
-        yesterdayDelta: "8.42%",
-        monthNew: "6,782",
-        monthDelta: "12.31%",
-        quarterNew: "18,934",
-        quarterDelta: "15.62%",
-        dailyGrowth: "+2.35%",
-        monthlyGrowth: "+12.31%",
-        quarterlyGrowth: "+15.62%",
-      },
-      periodLabel: "2026-05-15 至 2026-06-14",
-      totalMembersLabel: "128,670",
-      sourceTotal: "26,843",
-      trends30,
-      trends90,
-      levels,
-      sourceRows,
-      portraitBars,
-    },
-    members,
-  }), []);
-  const { data: appData } = useAppData(fallbackData);
+  const previousViewportWidth = useRef(window.innerWidth);
+  const { data: appData, status: dataStatus, error: dataError, reload: reloadData } = useAppData();
+
+  useEffect(() => {
+    const handleResize = () => {
+      const width = window.innerWidth;
+      if (width <= 1060 && previousViewportWidth.current > 1060) setAiOpen(false);
+      if (width <= 820 && previousViewportWidth.current > 820) setMobileNav(false);
+      previousViewportWidth.current = width;
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
+  if (dataStatus !== "live" || !appData) {
+    return <DatabaseState status={dataStatus} error={dataError} onRetry={reloadData} />;
+  }
 
   const showToast = (message) => {
     setToast(message);
@@ -713,7 +646,7 @@ export function App() {
         </div>
       </main>
       <AIPanel open={aiOpen} onToggle={() => setAiOpen((value) => !value)} onToast={showToast} onAction={setAction} data={appData} />
-      <ActionModal action={action} onClose={() => setAction("")} onToast={showToast} />
+      <ActionModal action={action} onClose={() => setAction("")} onToast={showToast} data={appData} />
       {toast && <div className="toast"><IconSparkles size={17} />{toast}</div>}
     </div>
   );

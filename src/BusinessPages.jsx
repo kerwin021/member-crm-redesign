@@ -211,12 +211,12 @@ const clawTrend = [
   { day: "06-15", insight: 91, suggestion: 63 },
 ];
 
-function rowsFrom(dataRows, fallbackRows) {
-  return dataRows?.length ? dataRows : fallbackRows;
+function rowsFrom(dataRows) {
+  return Array.isArray(dataRows) ? dataRows : [];
 }
 
-function useSyncedRows(dataRows, fallbackRows) {
-  const sourceRows = rowsFrom(dataRows, fallbackRows);
+function useSyncedRows(dataRows) {
+  const sourceRows = rowsFrom(dataRows);
   const [rows, setRows] = useState(sourceRows);
   useEffect(() => {
     setRows(sourceRows);
@@ -299,17 +299,26 @@ function EmptyFiltered() {
 }
 
 function ClawWorkspacePage({ activePage, onToast, data }) {
+  const toolRows = withIcons(rowsFrom(data.clawToolEntrances), [IconChartBar, IconSparkles, IconBolt, IconTargetArrow]);
+  const scopeRows = rowsFrom(data.clawScopeOptions);
+  const followUpRows = rowsFrom(data.clawFollowUps);
   const [prompt, setPrompt] = useState("");
-  const [activeTool, setActiveTool] = useState(clawToolEntrances[0].label);
-  const [activeScope, setActiveScope] = useState("近30天");
+  const [activeTool, setActiveTool] = useState(toolRows[0]?.label || "智能分析");
+  const [activeScope, setActiveScope] = useState(scopeRows[0] || "全部数据");
   const [answer, setAnswer] = useState("选择一个推荐问题，或直接输入会员经营问题，微智 Claw 会生成分析摘要和下一步动作。");
   const [answerSteps, setAnswerSteps] = useState(["识别问题范围", "匹配会员指标", "生成运营建议"]);
   const [completedActions, setCompletedActions] = useState([]);
   const [recommendRefresh, setRecommendRefresh] = useState(0);
-  const insightRows = withIcons(rowsFrom(data?.clawInsightCards, clawInsightCards), [IconArrowUpRight, IconTargetArrow, IconActivity]);
-  const suggestionRows = withIcons(rowsFrom(data?.clawSuggestionCards, clawSuggestionCards), [IconSparkles, IconHeartHandshake, IconUsersGroup]);
-  const promptRows = rowsFrom(data?.clawPromptTemplates, clawPromptTemplates);
-  const trendRows = rowsFrom(data?.clawTrend, clawTrend);
+  const insightRows = withIcons(rowsFrom(data.clawInsightCards), [IconArrowUpRight, IconTargetArrow, IconActivity]);
+  const suggestionRows = withIcons(rowsFrom(data.clawSuggestionCards), [IconSparkles, IconHeartHandshake, IconUsersGroup]);
+  const promptRows = rowsFrom(data.clawPromptTemplates);
+  const trendRows = rowsFrom(data.clawTrend);
+  const clawStats = [
+    { label: "本期洞察", value: String(insightRows.length), note: "MySQL 当前记录", icon: IconSparkles },
+    { label: "智能推荐", value: String(suggestionRows.length), note: "可执行建议", icon: IconBolt, tone: "green" },
+    { label: "趋势数据", value: String(trendRows.length), note: "数据库统计周期", icon: IconMessageCircle, tone: "orange" },
+    { label: "推荐问题", value: String(promptRows.length), note: "已启用模板", icon: IconTargetArrow, tone: "purple" },
+  ];
   const pageTitle = {
     "claw-insights": "本期洞察",
     "claw-qa": "智能问答",
@@ -323,8 +332,11 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
     }
     const nextTool = options.tool || activeTool;
     const nextScope = options.scope || activeScope;
+    const summary = data.dashboard.summary;
+    const primarySource = data.dashboard.sourceRows[0] || ["暂无来源", "0"];
+    const salesTotal = data.insights.sales.stats[0]?.[1] || "¥0";
     setActiveTool(nextTool);
-    setAnswer(`已按“${nextScope} · ${nextTool}”围绕“${text}”完成分析：当前会员增长质量稳定，小程序商城贡献最高，但高价值会员转化还有提升空间。建议优先锁定近 30 天高潜人群，创建分层触达任务，并在 7 日后复盘复购、客单价和权益领取变化。`);
+    setAnswer(`已按“${nextScope} · ${nextTool}”围绕“${text}”完成数据库分析：当前会员总数为 ${summary.totalMembers}，本月新增 ${summary.monthNew}；主要注册来源是${primarySource[0]}（${primarySource[1]} 人），累计销售额为 ${salesTotal}。建议结合当前分群、标签和订单记录继续下钻，并在执行后复盘数据库指标变化。`);
     setAnswerSteps([
       `确认分析范围：${nextScope}`,
       `输出${nextTool}摘要和关键指标`,
@@ -356,12 +368,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
         </div>
         <button className="primary-button" onClick={() => askClaw("本周会员经营最值得关注的问题是什么？")}>快速分析</button>
       </div>
-      <StatCards items={[
-        { label: "本期洞察", value: "18", note: "今日新增 4 条", icon: IconSparkles },
-        { label: "智能推荐", value: "12", note: "可执行 9 条", icon: IconBolt, tone: "green" },
-        { label: "问答响应", value: "286", note: "平均 3.2 秒", icon: IconMessageCircle, tone: "orange" },
-        { label: "推荐问题", value: "42", note: "复用率 68%", icon: IconTargetArrow, tone: "purple" },
-      ]} />
+      <StatCards items={clawStats} />
 
       {activePage === "claw-insights" && (
         <div className="claw-grid">
@@ -407,7 +414,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
             <div className="claw-composer__context">
               <span>分析范围</span>
               <div>
-                {clawScopeOptions.map((scope) => (
+                {scopeRows.map((scope) => (
                   <button
                     className={activeScope === scope ? "is-active" : ""}
                     key={scope}
@@ -427,7 +434,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
             />
             <div className="claw-composer__footer">
               <div className="claw-tool-pills">
-                {clawToolEntrances.map(({ label, icon: Icon, question, hint }) => (
+                {toolRows.map(({ label, icon: Icon, question, hint }) => (
                   <button
                     className={activeTool === label ? "is-active" : ""}
                     key={label}
@@ -443,7 +450,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
             </div>
             <div className="claw-followups">
               <span>继续追问</span>
-              {clawFollowUps.map((question) => <button key={question} onClick={() => askClaw(question, { toast: "已生成追问回答" })}>{question}</button>)}
+              {followUpRows.map((question) => <button key={question} onClick={() => askClaw(question, { toast: "已生成追问回答" })}>{question}</button>)}
             </div>
           </div>
           <div className="claw-qa-layout">
@@ -503,7 +510,7 @@ function WechatAvatar({ item, compact = false }) {
 }
 
 function WechatChatPage({ onToast, data }) {
-  const conversationRows = rowsFrom(data?.wechatConversations, wechatConversations);
+  const conversationRows = rowsFrom(data.wechatConversations);
   const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState("聊天框");
   const [activeType, setActiveType] = useState("聊天");
@@ -511,7 +518,7 @@ function WechatChatPage({ onToast, data }) {
   const [selectedId, setSelectedId] = useState(conversationRows[0]?.id || "yingyou");
   const [pinned, setPinned] = useState(true);
   const [draft, setDraft] = useState("");
-  const [messages, setMessages] = useSyncedRows(data?.wechatMessages, initialWechatMessages);
+  const [messages, setMessages] = useSyncedRows(data.wechatMessages);
   useEffect(() => {
     if (!conversationRows.some((item) => item.id === selectedId)) setSelectedId(conversationRows[0]?.id || "yingyou");
   }, [conversationRows, selectedId]);
@@ -519,7 +526,7 @@ function WechatChatPage({ onToast, data }) {
     const typeMatched = activeTab === "未读" ? item.unread > 0 : activeTab === "通讯录" ? true : activeType === "全部" || item.type === activeType;
     return typeMatched && `${item.name}${item.preview}`.includes(query);
   });
-  const selected = conversationRows.find((item) => item.id === selectedId) || conversationRows[0] || wechatConversations[0];
+  const selected = conversationRows.find((item) => item.id === selectedId) || conversationRows[0];
   const sendMessage = () => {
     const text = draft.trim();
     if (!text) {
@@ -530,6 +537,9 @@ function WechatChatPage({ onToast, data }) {
     setDraft("");
     onToast("微信消息已发送");
   };
+  if (!selected) {
+    return <section className="business-page"><PageHeader title="聊天会话" subtitle="会话数据来自 MySQL" /><EmptyFiltered /></section>;
+  }
   return (
     <section className="wechat-chat-page" aria-label="微信聊天会话">
       <aside className="wechat-session-list">
@@ -541,7 +551,10 @@ function WechatChatPage({ onToast, data }) {
           {["聊天框", "通讯录", "未读"].map((tab) => <button className={activeTab === tab ? "is-active" : ""} key={tab} onClick={() => setActiveTab(tab)}>{tab}</button>)}
         </div>
         <div className="wechat-type-tabs">
-          {["聊天", "群聊", "公众号"].map((type) => <button className={activeType === type ? "is-active" : ""} key={type} onClick={() => { setActiveType(type); setActiveTab("聊天框"); }}>{type}{type === "聊天" ? "(686)" : type === "群聊" ? "(25)" : ""}</button>)}
+          {["聊天", "群聊", "公众号"].map((type) => {
+            const count = conversationRows.filter((item) => item.type === type).length;
+            return <button className={activeType === type ? "is-active" : ""} key={type} onClick={() => { setActiveType(type); setActiveTab("聊天框"); }}>{type}({count})</button>;
+          })}
         </div>
         <div className="wechat-conversation-scroll">
           {filteredConversations.map((conversation) => (
@@ -562,8 +575,8 @@ function WechatChatPage({ onToast, data }) {
             <button className={`wechat-pin ${pinned ? "is-on" : ""}`} onClick={() => { setPinned((value) => !value); onToast(pinned ? "已取消置顶" : "已置顶当前会话"); }}><IconPinned size={14} />置顶</button>
             <button className="wechat-tag-button" onClick={() => onToast("已打开客户标签")}>客户标签</button>
             <div className="wechat-date-segment">{["今日", "昨日", "前天"].map((item) => <button className={dayFilter === item ? "is-active" : ""} key={item} onClick={() => setDayFilter(item)}>{item}</button>)}</div>
-            <span className="wechat-reply-stat">3分钟回复率：<strong>100%</strong></span>
-            <span className="wechat-reply-stat">平均回复时长：<strong>42.95 秒</strong></span>
+            <span className="wechat-reply-stat">当前消息：<strong>{messages.length} 条</strong></span>
+            <span className="wechat-reply-stat">未读消息：<strong>{selected.unread || 0} 条</strong></span>
           </div>
           <div className="wechat-chat-tools-right">
             <button onClick={() => onToast("已打开会话质检视图")} aria-label="查看"><IconEye size={19} /></button>
@@ -608,12 +621,15 @@ function WechatChatPage({ onToast, data }) {
 function HighValuePage({ onToast, onAction, data }) {
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState(null);
-  const sourceRows = rowsFrom(data?.highValueMembers, highValueMembers);
+  const sourceRows = rowsFrom(data.highValueMembers);
   const rows = sourceRows.filter((item) => `${item.name}${item.id}${item.store}`.includes(query));
+  const totalOrders = sourceRows.reduce((sum, item) => sum + Number(item.orders || 0), 0);
+  const averageScore = sourceRows.length ? Math.round(sourceRows.reduce((sum, item) => sum + Number(item.score || 0), 0) / sourceRows.length) : 0;
+  const storeCount = new Set(sourceRows.map((item) => item.store).filter(Boolean)).size;
   return (
     <section className="business-page">
       <PageHeader title="高贡献会员" subtitle="聚焦高价值、高频次和高成长会员，提供专属运营策略" primaryLabel="创建专属人群" primaryIcon={IconUsersGroup} onPrimary={() => onAction("创建分群")} actions={<button className="outline-button" onClick={() => onToast("高贡献会员名单已加入导出任务")}><IconDatabaseExport size={16} />导出名单</button>} />
-      <StatCards items={[{ label: "高贡献会员", value: "18,620", note: "占总会员 14.47%", icon: IconTargetArrow }, { label: "近 30 天消费", value: "¥8,452万", note: "环比增长 12.8%", icon: IconShoppingBag, tone: "green" }, { label: "人均消费", value: "¥4,539", note: "高于整体 3.6 倍", icon: IconChartBar, tone: "orange" }, { label: "复购率", value: "78.6%", note: "较上月提升 4.2%", icon: IconRefresh, tone: "purple" }]} />
+      <StatCards items={[{ label: "高贡献会员", value: String(sourceRows.length), note: "MySQL 当前名单", icon: IconTargetArrow }, { label: "累计订单", value: totalOrders.toLocaleString(), note: "会员指标汇总", icon: IconShoppingBag, tone: "green" }, { label: "平均价值评分", value: String(averageScore), note: "贡献评分均值", icon: IconChartBar, tone: "orange" }, { label: "覆盖门店", value: String(storeCount), note: "会员归属门店", icon: IconBuildingStore, tone: "purple" }]} />
       <SearchFilters query={query} onQuery={setQuery} placeholder="搜索会员名称、编码或归属门店" onReset={() => setQuery("")} onSearch={() => onToast(`已找到 ${rows.length} 位高贡献会员`)}><select><option>全部等级</option><option>钻石卡</option><option>白金卡</option><option>金卡</option></select><select><option>全部价值区间</option><option>消费 ≥ ¥20,000</option><option>消费 ¥10,000 - ¥20,000</option></select></SearchFilters>
       <section className="panel business-table-card"><div className="business-table-head"><div><h2>会员价值排行</h2><p>基于消费、活跃、复购和成长综合评分</p></div><button className="quiet-button"><IconAdjustments size={15} />评分规则</button></div><div className="table-scroll"><table><thead><tr><th>排名</th><th>会员</th><th>等级</th><th>累计贡献</th><th>订单数</th><th>最近消费</th><th>归属门店</th><th>价值评分</th><th>趋势</th><th>操作</th></tr></thead><tbody>{rows.map((item, index) => <tr key={item.id}><td><span className={`rank-number is-${index + 1}`}>{index + 1}</span></td><td><div className="member-cell"><span>{item.name.slice(0, 1)}</span><div><strong>{item.name}</strong><small>{item.id}</small></div></div></td><td><Pill tone="purple">{item.level}</Pill></td><td><strong>{item.value}</strong></td><td>{item.orders}</td><td>{item.last}</td><td>{item.store}</td><td><div className="score-cell"><b>{item.score}</b><i><span style={{ width: `${item.score}%` }} /></i></div></td><td><span className={item.trend.startsWith("+") ? "positive-text" : "negative-text"}>{item.trend}</span></td><td><button className="table-link" onClick={() => setSelected(item)}>查看画像</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered />}</div></section>
       <Drawer open={!!selected} title={selected?.name || ""} subtitle={`${selected?.id || ""} · 高贡献会员画像`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast("已记录跟进任务")}>创建跟进</button><button className="primary-button" onClick={() => onAction("发放优惠券")}><IconDiscount2 size={16} />发放专属权益</button></>}><div className="drawer-profile"><span>{selected?.name.slice(0,1)}</span><div><strong>{selected?.level}</strong><p>{selected?.store}</p></div></div><div className="drawer-metrics"><div><small>价值评分</small><strong>{selected?.score}</strong></div><div><small>累计贡献</small><strong>{selected?.value}</strong></div><div><small>订单数</small><strong>{selected?.orders}</strong></div></div><h3>关键标签</h3><div className="tag-cloud"><Pill>高价值会员</Pill><Pill tone="green">高复购</Pill><Pill tone="orange">新品偏好</Pill><Pill tone="purple">小程序活跃</Pill></div><h3>AI 运营建议</h3><div className="drawer-insight"><IconSparkles size={20} /><p>该会员近期消费保持增长，建议发放新品优先体验权益，并安排门店专属顾问在 7 天内完成一次关怀触达。</p></div></Drawer>
@@ -625,13 +641,13 @@ function LogsPage({ onToast, data }) {
   const [query, setQuery] = useState("");
   const [type, setType] = useState("全部类型");
   const [selected, setSelected] = useState(null);
-  const sourceRows = rowsFrom(data?.logRows, logRows);
+  const sourceRows = rowsFrom(data.logRows);
   const rows = sourceRows.filter((row) => (!query || `${row.member}${row.detail}${row.operator}`.includes(query)) && (type === "全部类型" || row.action === type));
   return <section className="business-page"><PageHeader title="会员日志" subtitle="追踪会员资料、等级、权益、积分和账户状态的全部变更" actions={<button className="outline-button" onClick={() => onToast("会员日志已导出")}><IconDatabaseExport size={16} />导出日志</button>} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索会员、操作人或变更内容" onReset={() => { setQuery(""); setType("全部类型"); }} onSearch={() => onToast(`已筛选 ${rows.length} 条日志`)}><select value={type} onChange={(event) => setType(event.target.value)}><option>全部类型</option><option>会员等级变更</option><option>优惠券发放</option><option>标签变更</option><option>资料更新</option><option>账户冻结</option><option>积分变更</option></select><button className="business-date"><IconCalendar size={15} />2026-06-01 至 2026-06-15</button></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>操作记录</h2><p>所有关键变更均保留操作来源与执行人</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>操作时间</th><th>会员</th><th>操作类型</th><th>变更内容</th><th>操作人</th><th>来源</th><th>操作</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.time}-${row.member}`}><td>{row.time}</td><td><strong>{row.member}</strong></td><td><Pill tone={row.action.includes("冻结") ? "red" : row.action.includes("发放") ? "orange" : "blue"}>{row.action}</Pill></td><td>{row.detail}</td><td>{row.operator}</td><td>{row.channel}</td><td><button className="table-link" onClick={() => setSelected(row)}>详情</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered />}</div></section><Drawer open={!!selected} title="日志详情" subtitle={selected?.time || ""} onClose={() => setSelected(null)}><div className="detail-list"><div><span>会员</span><strong>{selected?.member}</strong></div><div><span>操作类型</span><strong>{selected?.action}</strong></div><div><span>变更内容</span><strong>{selected?.detail}</strong></div><div><span>操作人</span><strong>{selected?.operator}</strong></div><div><span>操作来源</span><strong>{selected?.channel}</strong></div><div><span>日志编号</span><strong>LOG-{selected?.time.replace(/\D/g, "")}</strong></div></div><h3>操作链路</h3><div className="log-timeline"><div><i /><strong>触发变更</strong><small>{selected?.channel}</small></div><div><i /><strong>规则校验通过</strong><small>系统自动完成</small></div><div><i /><strong>数据写入成功</strong><small>{selected?.time}</small></div></div></Drawer></section>;
 }
 
 function SegmentsPage({ onToast, data }) {
-  const [segments, setSegments] = useSyncedRows(data?.segments, initialSegments);
+  const [segments, setSegments] = useSyncedRows(data.segments);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -641,7 +657,7 @@ function SegmentsPage({ onToast, data }) {
 }
 
 function TagsPage({ onToast, data }) {
-  const [tags, setTags] = useSyncedRows(data?.tags, initialTags);
+  const [tags, setTags] = useSyncedRows(data.tags);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -650,9 +666,9 @@ function TagsPage({ onToast, data }) {
   return <section className="business-page"><PageHeader title="会员标签" subtitle="统一管理会员属性、行为、偏好、价值和渠道标签" primaryLabel="新建标签" primaryIcon={IconTag} onPrimary={() => setDialog(true)} actions={<button className="outline-button" onClick={() => onToast("标签规则已重新计算")}><IconRefresh size={16} />重新计算</button>} /><StatCards items={[{ label: "标签总数", value: "86", note: "启用 72 个", icon: IconTag }, { label: "今日命中", value: "38,426", note: "较昨日 +8.2%", icon: IconTargetArrow, tone: "green" }, { label: "自动标签", value: "54", note: "实时规则 21 个", icon: IconSparkles, tone: "purple" }, { label: "待处理异常", value: "2", note: "规则执行超时", icon: IconActivity, tone: "orange" }]} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索标签名称或分类" onReset={() => setQuery("")} onSearch={() => onToast(`已找到 ${rows.length} 个标签`)}><select><option>全部分类</option><option>价值标签</option><option>活跃标签</option><option>偏好标签</option><option>行为标签</option></select><select><option>全部状态</option><option>启用</option><option>停用</option></select></SearchFilters><section className="panel tag-library"><div className="business-table-head"><div><h2>标签库</h2><p>点击标签可查看规则和覆盖人群</p></div><span className="record-count">{rows.length} 个标签</span></div><div className="tag-grid">{rows.map((tag) => <article key={tag.id} onClick={() => setSelected(tag)}><div><span className={`tag-library__icon is-${tag.color}`}><IconTag size={19} /></span><Toggle checked={tag.enabled} label={`${tag.name}状态`} onChange={(event) => { event.stopPropagation(); setTags((current) => current.map((item) => item.id === tag.id ? { ...item, enabled: !item.enabled } : item)); }} /></div><h3>{tag.name}</h3><Pill tone={tag.color === "pink" ? "red" : tag.color}>{tag.category}</Pill><dl><div><dt>覆盖会员</dt><dd>{tag.coverage.toLocaleString()}</dd></div><div><dt>规则数</dt><dd>{tag.rules}</dd></div></dl><small>更新：{tag.updated}</small></article>)}</div></section><FormDialog open={dialog} title="新建会员标签" subtitle="创建标签并配置基础规则" onClose={() => setDialog(false)} onSave={save} fields={[{ key: "name", label: "标签名称", placeholder: "例如：高频到店会员" }, { key: "category", label: "标签分类", type: "select", options: ["行为标签", "价值标签", "活跃标签", "偏好标签", "渠道标签"] }, { key: "description", label: "标签说明", type: "textarea", full: true, placeholder: "说明标签的业务含义和使用场景" }]} /><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${selected?.category || ""} · 覆盖 ${selected?.coverage.toLocaleString() || 0} 位会员`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast("标签规则已进入编辑状态")}><IconEdit size={16} />编辑规则</button><button className="primary-button" onClick={() => onToast("标签人群已同步至分群")}>创建人群</button></>}><h3>标签说明</h3><p className="drawer-copy">系统根据会员交易、活跃和渠道行为自动计算该标签，每日更新一次，关键事件实时更新。</p><h3>命中规则</h3><div className="rule-builder"><div><span>累计消费金额</span><b>大于</b><strong>¥3,000</strong></div><div><span>近 90 天订单数</span><b>大于等于</b><strong>5 单</strong></div></div><h3>覆盖趋势</h3><div className="tag-trend-mini"><IconArrowUpRight size={20} /><strong>近 7 天增加 1,268 人</strong><small>增长 7.3%</small></div></Drawer></section>;
 }
 
-function TagScenesPage({ onToast }) {
-  const available = ["高价值会员", "待唤醒会员", "新品偏好", "价格敏感", "门店自提", "生日会员"];
-  const [scenes, setScenes] = useState([{ id: 1, name: "首页会员概览", module: "用户数据", desc: "用于首页关键指标的人群筛选", tags: ["高价值会员", "待唤醒会员"], enabled: true }, { id: 2, name: "优惠券精准发放", module: "营销管理", desc: "发券任务创建时的人群筛选", tags: ["价格敏感", "生日会员"], enabled: true }, { id: 3, name: "新品推荐", module: "营销管理", desc: "新品上市时的推荐目标人群", tags: ["新品偏好", "高价值会员"], enabled: true }, { id: 4, name: "门店运营看板", module: "配置管理", desc: "门店会员结构和到店行为分析", tags: ["门店自提"], enabled: false }]);
+function TagScenesPage({ onToast, data }) {
+  const available = rowsFrom(data.tags).map((tag) => tag.name);
+  const [scenes, setScenes] = useSyncedRows(data.tagScenes);
   const [editing, setEditing] = useState(null);
   const [draftTags, setDraftTags] = useState([]);
   const open = (scene) => { setEditing(scene); setDraftTags(scene.tags); };
@@ -663,13 +679,13 @@ function TagScenesPage({ onToast }) {
 function TagLogsPage({ onToast, data }) {
   const [query, setQuery] = useState("");
   const [change, setChange] = useState("全部变更");
-  const sourceRows = rowsFrom(data?.tagLogRows, tagLogRows);
+  const sourceRows = rowsFrom(data.tagLogRows);
   const rows = sourceRows.filter((row) => (!query || `${row.member}${row.tag}${row.operator}`.includes(query)) && (change === "全部变更" || row.change === change));
   return <section className="business-page"><PageHeader title="会员标签变更日志" subtitle="查看标签命中、移除和人工调整的完整记录" actions={<button className="outline-button" onClick={() => onToast("标签变更日志已导出")}><IconDatabaseExport size={16} />导出日志</button>} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索会员、标签或操作人" onReset={() => { setQuery(""); setChange("全部变更"); }} onSearch={() => onToast(`已筛选 ${rows.length} 条记录`)}><select value={change} onChange={(event) => setChange(event.target.value)}><option>全部变更</option><option>新增</option><option>移除</option></select><button className="business-date"><IconCalendar size={15} />近 30 天</button></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>标签变更记录</h2><p>自动规则与人工操作均可追溯</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>变更时间</th><th>会员</th><th>标签</th><th>变更类型</th><th>触发来源</th><th>操作人</th><th>结果</th></tr></thead><tbody>{rows.map((row) => <tr key={`${row.time}-${row.member}`}><td>{row.time}</td><td><strong>{row.member}</strong></td><td><Pill tone="purple">{row.tag}</Pill></td><td><Pill tone={row.change === "新增" ? "green" : "red"}>{row.change}</Pill></td><td>{row.source}</td><td>{row.operator}</td><td><span className="result-success"><IconCheck size={14} />成功</span></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered />}</div></section></section>;
 }
 
 function ProductsPage({ onToast, data }) {
-  const [products, setProducts] = useSyncedRows(data?.products, initialProducts);
+  const [products, setProducts] = useSyncedRows(data.products);
   const [query, setQuery] = useState("");
   const [dialog, setDialog] = useState(false);
   const [selected, setSelected] = useState(null);
@@ -679,7 +695,7 @@ function ProductsPage({ onToast, data }) {
 }
 
 function OrdersPage({ onToast, data }) {
-  const [orders, setOrders] = useSyncedRows(data?.orders, initialOrders);
+  const [orders, setOrders] = useSyncedRows(data.orders);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("全部状态");
   const [selected, setSelected] = useState(null);
@@ -711,6 +727,78 @@ function MemberInsightPage({ onToast, data }) {
 function SalesInsightPage({ onToast, data }) {
   const [period, setPeriod] = useState("7");
   return <InsightShell title="销售洞察" subtitle="分析会员销售额、订单、客单价、渠道和商品贡献" period={period} setPeriod={setPeriod} onToast={onToast} stats={[{ label: "今日销售额", value: "¥176万", note: "较昨日 +18.9%", icon: IconShoppingBag }, { label: "今日订单", value: "2,380", note: "转化率 12.6%", icon: IconFileInvoice, tone: "green" }, { label: "会员客单价", value: "¥73.9", note: "较非会员高 28%", icon: IconChartBar, tone: "orange" }, { label: "复购销售占比", value: "62.4%", note: "环比 +4.1%", icon: IconRefresh, tone: "purple" }]}><div className="insight-layout"><section className="panel insight-main-chart"><div className="business-table-head"><div><h2>销售与订单趋势</h2><p>销售额（万元）与订单量变化</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={rowsFrom(data?.salesTrend, salesTrend)}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip />}/><Bar name="销售额（万元）" dataKey="sales" fill="#2869f6" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section><section className="panel insight-side"><div className="business-table-head"><div><h2>渠道销售贡献</h2><p>销售额占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={[{name:"小程序",value:46},{name:"门店",value:38},{name:"公众号",value:11},{name:"其他",value:5}]} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none"><Cell fill="#2869f6"/><Cell fill="#13bda5"/><Cell fill="#7a63e8"/><Cell fill="#f3a51a"/></Pie><Tooltip/></PieChart></ResponsiveContainer><strong>¥1,026万<small>近 7 天销售</small></strong></div><div className="channel-list"><div><i className="is-blue"/><span>小程序商城</span><strong>46%</strong></div><div><i className="is-green"/><span>门店收银</span><strong>38%</strong></div><div><i className="is-purple"/><span>公众号商城</span><strong>11%</strong></div></div></section></div><div className="insight-cards-row"><article className="panel"><h2>热销商品排行</h2><div className="ranking-list"><div><b>1</b><span>一鸣真鲜奶 950ml</span><strong>¥186万</strong></div><div><b>2</b><span>原味风味酸奶 200g</span><strong>¥142万</strong></div><div><b>3</b><span>经典奶香吐司</span><strong>¥98万</strong></div></div></article><article className="panel"><h2>门店销售排行</h2><div className="ranking-list"><div><b>1</b><span>杭州西湖店</span><strong>¥68.4万</strong></div><div><b>2</b><span>宁波鄞州店</span><strong>¥56.2万</strong></div><div><b>3</b><span>温州鹿城店</span><strong>¥49.8万</strong></div></div></article><article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>AI 销售建议</h2><p>周末小程序客单价显著高于工作日，建议将高价值会员新品组合券安排在周五晚间触达。</p><button onClick={() => onToast("已生成销售提升任务草稿")}>生成提升方案</button></article></div></InsightShell>;
+}
+
+const INSIGHT_ICONS = [IconUsers, IconActivity, IconTargetArrow, IconChartBar];
+const CHART_COLORS = ["#2869f6", "#13bda5", "#7a63e8", "#f3a51a", "#ef5b6d"];
+
+function insightStats(rows) {
+  return rowsFrom(rows).map(([label, value, note], index) => ({
+    label,
+    value,
+    note,
+    icon: INSIGHT_ICONS[index % INSIGHT_ICONS.length],
+    tone: ["blue", "green", "orange", "purple"][index % 4],
+  }));
+}
+
+function DatabaseFansInsightPage({ onToast, data }) {
+  const [period, setPeriod] = useState("7");
+  const insight = data.insights.fans;
+  const channels = rowsFrom(insight.channels);
+  const recommendation = insight.recommendation;
+  return (
+    <InsightShell title="粉丝洞察" subtitle="分析公众号、小程序和社交渠道的粉丝增长、活跃与转化" period={period} setPeriod={setPeriod} onToast={onToast} stats={insightStats(insight.stats)}>
+      <div className="insight-layout">
+        <section className="panel insight-main-chart"><div className="business-table-head"><div><h2>粉丝增长趋势</h2><p>数据来自会员注册与 SCRM 联系人</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><AreaChart data={rowsFrom(data.fanTrend)}><defs><linearGradient id="fanFillDb" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#2869f6" stopOpacity={.28}/><stop offset="100%" stopColor="#2869f6" stopOpacity={0}/></linearGradient></defs><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip/>}/><Area name="新增会员" dataKey="new" stroke="#2869f6" fill="url(#fanFillDb)" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></section>
+        <section className="panel insight-side"><div className="business-table-head"><div><h2>渠道构成</h2><p>会员来源占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={channels} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none">{channels.map((row, index) => <Cell key={row.name} fill={CHART_COLORS[index % CHART_COLORS.length]}/>)}</Pie><Tooltip/></PieChart></ResponsiveContainer><strong>{insight.stats[0]?.[1] || "0"}<small>客户总数</small></strong></div><div className="channel-list">{channels.map((row, index) => <div key={row.name}><i style={{background: CHART_COLORS[index % CHART_COLORS.length]}}/><span>{row.name}</span><strong>{row.value}%</strong></div>)}</div></section>
+      </div>
+      <div className="insight-cards-row">
+        <article className="panel"><h2>内容互动排行</h2><div className="ranking-list">{rowsFrom(insight.contentRanking).map((row, index) => <div key={row.name}><b>{index + 1}</b><span>{row.name}</span><strong>{row.value}</strong></div>)}</div></article>
+        <article className="panel"><h2>粉丝转化漏斗</h2><div className="funnel">{rowsFrom(insight.funnel).map((row) => <div key={row.label} style={{width: `${Math.max(row.value, 12)}%`}}>{row.label} <strong>{row.count}</strong></div>)}</div></article>
+        <article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>{recommendation?.title || "暂无 AI 建议"}</h2><p>{recommendation?.desc || "MySQL 中尚未生成粉丝增长建议。"}</p><button onClick={() => onToast("已生成粉丝转化任务草稿")}>生成运营任务</button></article>
+      </div>
+    </InsightShell>
+  );
+}
+
+function DatabaseMemberInsightPage({ onToast, data }) {
+  const [period, setPeriod] = useState("30");
+  const insight = data.insights.members;
+  const recommendation = insight.recommendation;
+  return (
+    <InsightShell title="会员洞察" subtitle="从生命周期、留存、价值和活跃度理解会员经营质量" period={period} setPeriod={setPeriod} onToast={onToast} stats={insightStats(insight.stats)}>
+      <div className="insight-layout">
+        <section className="panel insight-main-chart"><div className="business-table-head"><div><h2>会员经营质量趋势</h2><p>会员新增与变化趋势</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><LineChart data={rowsFrom(data.memberTrend)}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="month" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip/>}/><Line name="活跃" dataKey="active" stroke="#2869f6" strokeWidth={3}/><Line name="留存变化" dataKey="retention" stroke="#13bda5" strokeWidth={3}/><Line name="价值" dataKey="value" stroke="#7a63e8" strokeWidth={3}/></LineChart></ResponsiveContainer></div></section>
+        <section className="panel insight-side lifecycle"><div className="business-table-head"><div><h2>生命周期分布</h2><p>当前会员状态</p></div></div>{rowsFrom(insight.lifecycle).map((row) => <div className="lifecycle-row" key={row.label}><span>{row.label}</span><i><b className={`is-${row.tone}`} style={{width: `${Math.min(row.value * 2.2, 100)}%`}}/></i><strong>{row.value}%</strong></div>)}</section>
+      </div>
+      <div className="insight-cards-row">
+        <article className="panel"><h2>价值人群概览</h2><div className="migration-grid">{rowsFrom(insight.migration).map(([label, value, note], index) => <div key={label}>{index === 0 ? <IconArrowUpRight/> : index === 1 ? <IconArrowDownRight/> : <IconRefresh/>}<strong>{value}</strong><span>{note || label}</span></div>)}</div></article>
+        <article className="panel"><h2>会员等级结构</h2><div className="simple-bars">{rowsFrom(insight.levels).map((row) => <div key={row.label}><span>{row.label}</span><i><b style={{width: `${row.value}%`}}/></i><strong>{row.value}%</strong></div>)}</div></article>
+        <article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>{recommendation?.title || "暂无 AI 建议"}</h2><p>{recommendation?.desc || "MySQL 中尚未生成会员运营建议。"}</p><button onClick={() => onToast("已生成会员成长任务草稿")}>创建成长任务</button></article>
+      </div>
+    </InsightShell>
+  );
+}
+
+function DatabaseSalesInsightPage({ onToast, data }) {
+  const [period, setPeriod] = useState("7");
+  const insight = data.insights.sales;
+  const channels = rowsFrom(insight.channels);
+  const recommendation = insight.recommendation;
+  return (
+    <InsightShell title="销售洞察" subtitle="分析会员销售额、订单、客单价、渠道和商品贡献" period={period} setPeriod={setPeriod} onToast={onToast} stats={insightStats(insight.stats)}>
+      <div className="insight-layout">
+        <section className="panel insight-main-chart"><div className="business-table-head"><div><h2>销售与订单趋势</h2><p>销售额（万元）与订单量变化</p></div></div><div className="large-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={rowsFrom(data.salesTrend)}><CartesianGrid stroke="#edf1f7" vertical={false}/><XAxis dataKey="day" axisLine={false} tickLine={false}/><YAxis axisLine={false} tickLine={false}/><Tooltip content={<InsightTooltip/>}/><Bar name="销售额（万元）" dataKey="sales" fill="#2869f6" radius={[5,5,0,0]}/></BarChart></ResponsiveContainer></div></section>
+        <section className="panel insight-side"><div className="business-table-head"><div><h2>渠道销售贡献</h2><p>销售额占比</p></div></div><div className="insight-donut"><ResponsiveContainer width="100%" height="100%"><PieChart><Pie data={channels} dataKey="value" innerRadius={56} outerRadius={78} paddingAngle={3} stroke="none">{channels.map((row, index) => <Cell key={row.name} fill={CHART_COLORS[index % CHART_COLORS.length]}/>)}</Pie><Tooltip/></PieChart></ResponsiveContainer><strong>{insight.stats[0]?.[1] || "¥0"}<small>累计销售</small></strong></div><div className="channel-list">{channels.map((row, index) => <div key={row.name}><i style={{background: CHART_COLORS[index % CHART_COLORS.length]}}/><span>{row.name}</span><strong>{row.value}%</strong></div>)}</div></section>
+      </div>
+      <div className="insight-cards-row">
+        <article className="panel"><h2>热销商品排行</h2><div className="ranking-list">{rowsFrom(insight.productRanking).map((row, index) => <div key={row.name}><b>{index + 1}</b><span>{row.name}</span><strong>{row.value}</strong></div>)}</div></article>
+        <article className="panel"><h2>门店销售排行</h2><div className="ranking-list">{rowsFrom(insight.storeRanking).map((row, index) => <div key={row.name}><b>{index + 1}</b><span>{row.name}</span><strong>{row.value}</strong></div>)}</div></article>
+        <article className="panel ai-recommend-card"><IconSparkles size={23}/><h2>{recommendation?.title || "暂无 AI 建议"}</h2><p>{recommendation?.desc || "MySQL 中尚未生成销售提升建议。"}</p><button onClick={() => onToast("已生成销售提升任务草稿")}>生成提升方案</button></article>
+      </div>
+    </InsightShell>
+  );
 }
 
 const domainConfigs = {
@@ -778,12 +866,65 @@ function DomainFeaturePage({ pageId, onToast }) {
   return <section className="business-page"><PageHeader title={config.label} subtitle={config.description} primaryLabel={config.action} primaryIcon={FeatureIcon} onPrimary={primaryAction} actions={<button className="outline-button" onClick={() => onToast(`${config.label}数据已刷新`)}><IconRefresh size={16}/>刷新数据</button>} /><StatCards items={[{ label: `${config.label}总数`, value: String(records.length + 12), note: "较上周新增 3 项", icon: FeatureIcon }, { label: "已启用", value: String(records.filter((record) => record.enabled).length + 8), note: "运行状态正常", icon: IconCheck, tone: "green" }, { label: "今日处理", value: "286", note: "完成率 96.8%", icon: IconActivity, tone: "orange" }, { label: "待处理", value: "3", note: "需要管理员关注", icon: IconClock, tone: "purple" }]} /><SearchFilters query={query} onQuery={setQuery} placeholder={`搜索${config.label}名称、负责人或范围`} onReset={() => { setQuery(""); setStatus("全部状态"); }} onSearch={() => onToast(`已找到 ${rows.length} 条${config.label}数据`)}><select value={status} onChange={(event) => setStatus(event.target.value)}><option>全部状态</option><option>已启用</option><option>运行中</option><option>待审核</option></select><select><option>全部负责人</option><option>超级管理员</option><option>会员运营组</option><option>系统自动</option></select></SearchFilters><section className="panel business-table-card"><div className="business-table-head"><div><h2>{config.label}列表</h2><p>数据来自 {config.domain}，点击名称查看详情和执行配置</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>名称</th><th>业务范围</th><th>负责人</th><th>状态</th><th>启用</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{rows.map((record) => <tr key={record.id}><td><button className="table-link" onClick={() => setSelected(record)}>{record.name}</button></td><td>{record.scope}</td><td>{record.owner}</td><td><Pill tone={record.status === "已启用" ? "green" : record.status === "待审核" ? "orange" : "blue"}>{record.status}</Pill></td><td><Toggle checked={record.enabled} label={`${record.name}状态`} onChange={() => setRecords((current) => current.map((item) => item.id === record.id ? { ...item, enabled: !item.enabled, status: item.enabled ? "已停用" : "已启用" } : item))}/></td><td>{record.updated}</td><td><button className="table-link" onClick={() => setSelected(record)}>查看</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered/>}</div></section><FormDialog open={dialog} title={config.action} subtitle={`在${config.domain}中创建新的${config.label}配置`} onClose={() => setDialog(false)} onSave={save} fields={[{ key: "name", label: `${config.label}名称`, placeholder: `请输入${config.label}名称` }, { key: "owner", label: "负责人", type: "select", options: ["超级管理员", "会员运营组", "门店运营组"] }, { key: "scope", label: "业务范围", type: "select", options: ["全部会员", "重点人群", "指定组织"] }, { key: "description", label: "配置说明", type: "textarea", full: true, placeholder: "补充业务目标、执行规则和注意事项" }]} /><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${config.domain} · ${config.group}`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast(`${selected?.name}已复制`)}>复制配置</button><button className="primary-button" onClick={() => onToast(`${selected?.name}已执行`)}>立即执行</button></>}><div className="drawer-insight"><IconSparkles size={19}/><p>{config.description}。当前配置可继续编辑范围、规则、通知和执行计划。</p></div><h3>基础信息</h3><div className="detail-list"><div><span>业务范围</span><strong>{selected?.scope}</strong></div><div><span>负责人</span><strong>{selected?.owner}</strong></div><div><span>当前状态</span><strong>{selected?.status}</strong></div><div><span>最近更新</span><strong>{selected?.updated}</strong></div></div><h3>执行配置</h3><div className="tag-cloud"><Pill>编辑规则</Pill><Pill tone="green">选择对象</Pill><Pill tone="orange">配置通知</Pill><Pill tone="purple">查看记录</Pill></div></Drawer></section>;
 }
 
+function DatabaseDomainOverviewPage({ pageId, onToast, data }) {
+  const config = domainConfigs[pageId];
+  const overview = data.domainOverviews[pageId] || { stats: [], tasks: [] };
+  const DomainIcon = config.icon;
+  const [selectedModule, setSelectedModule] = useState(null);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const moduleTitle = selectedModule?.[0] || selectedTask?.[0] || "";
+  const moduleDescription = selectedModule?.[1] || selectedTask?.[1] || "";
+  return (
+    <section className="business-page domain-overview">
+      <PageHeader title={config.title} subtitle={config.subtitle} actions={<button className="outline-button" onClick={() => onToast(`${config.title}数据已刷新`)}><IconRefresh size={16}/>刷新数据</button>}/>
+      <div className="domain-hero panel"><span className={`domain-hero__icon is-${config.tone}`}><DomainIcon size={30}/></span><div><h2>{config.title}工作台</h2><p>统计和任务均来自当前租户的 MySQL 数据。</p></div><button className="primary-button" onClick={() => onToast(`已打开${config.title}操作指南`)}>查看操作指南</button></div>
+      <StatCards items={rowsFrom(overview.stats).map(([label, value, note], index) => ({label, value, note, icon: [IconClipboardData, IconUsers, IconChartBar, IconActivity][index], tone: [config.tone, "green", "orange", "purple"][index]}))}/>
+      <div className="domain-module-grid">{config.modules.map(([title, desc, action], index) => <article className="panel" key={title}><span className={`domain-module-icon is-${[config.tone,"green","orange","purple"][index % 4]}`}><DomainIcon size={21}/></span><h2>{title}</h2><p>{desc}</p><button onClick={() => setSelectedModule([title, desc, action])}>{action}<IconChevronRight size={15}/></button></article>)}</div>
+      <section className="panel business-table-card"><div className="business-table-head"><div><h2>重点任务</h2><p>来自数据库的当前任务</p></div><span className="record-count">共 {overview.tasks.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>任务名称</th><th>目标对象</th><th>状态</th><th>完成度</th><th>操作</th></tr></thead><tbody>{rowsFrom(overview.tasks).map(([name, target, status, progress]) => <tr key={name}><td><strong>{name}</strong></td><td>{target}</td><td><Pill tone={status === "已启用" ? "green" : status === "待审核" ? "orange" : "blue"}>{status}</Pill></td><td><div className="task-progress"><i><b style={{width: progress}}/></i><strong>{progress}</strong></div></td><td><button className="table-link" onClick={() => setSelectedTask([name,target,status,progress])}>查看</button></td></tr>)}</tbody></table>{!overview.tasks.length && <EmptyFiltered/>}</div></section>
+      <Drawer open={!!selectedModule || !!selectedTask} title={moduleTitle} subtitle={`${config.title} · 功能面板`} onClose={() => {setSelectedModule(null); setSelectedTask(null);}} footer={<><button className="outline-button" onClick={() => onToast(`${moduleTitle}配置已保存`)}>保存配置</button><button className="primary-button" onClick={() => onToast(`${moduleTitle}已开始执行`)}>立即执行</button></>}><div className="drawer-insight"><IconSparkles size={19}/><p>{selectedModule ? moduleDescription : `目标：${moduleDescription}。当前状态为“${selectedTask?.[2]}”，完成度 ${selectedTask?.[3]}。`}</p></div><h3>基础信息</h3><div className="detail-list"><div><span>所属业务域</span><strong>{config.title}</strong></div><div><span>数据来源</span><strong>MySQL</strong></div><div><span>执行方式</span><strong>{selectedTask ? "按当前任务计划" : "手动或定时执行"}</strong></div></div></Drawer>
+    </section>
+  );
+}
+
+function DatabaseDomainFeaturePage({ pageId, onToast, data }) {
+  const config = FEATURE_PAGE_CONFIG[pageId];
+  const FeatureIcon = config.icon;
+  const exportOnly = config.action.includes("导出");
+  const [records, setRecords] = useSyncedRows(data.featurePages[pageId]);
+  const [query, setQuery] = useState("");
+  const [status, setStatus] = useState("全部状态");
+  const [selected, setSelected] = useState(null);
+  const [dialog, setDialog] = useState(false);
+  const rows = useMemo(() => records.filter((record) => (!query || `${record.name}${record.owner}${record.scope}`.includes(query)) && (status === "全部状态" || record.status === status)), [query, records, status]);
+  const owners = [...new Set(records.map((record) => record.owner).filter(Boolean))];
+  const scopes = [...new Set(records.map((record) => record.scope).filter(Boolean))];
+  const enabledCount = records.filter((record) => record.enabled).length;
+  const runningCount = records.filter((record) => record.status === "运行中").length;
+  const reviewCount = records.filter((record) => record.status === "待审核").length;
+  const save = (values) => {
+    const name = values.name || `${config.label} ${records.length + 1}`;
+    setRecords((current) => [{id: `${pageId}-${Date.now()}`, name, owner: values.owner || owners[0] || "未分配", scope: values.scope || scopes[0] || "未配置", status: "待审核", enabled: true, updated: "刚刚"}, ...current]);
+    setDialog(false);
+    onToast(`${config.label}“${name}”已保存到当前会话`);
+  };
+  return (
+    <section className="business-page">
+      <PageHeader title={config.label} subtitle={config.description} primaryLabel={config.action} primaryIcon={FeatureIcon} onPrimary={() => exportOnly ? onToast(`${config.label}数据已加入导出任务`) : setDialog(true)} actions={<button className="outline-button" onClick={() => onToast(`${config.label}数据已刷新`)}><IconRefresh size={16}/>刷新数据</button>}/>
+      <StatCards items={[{label: `${config.label}总数`, value: String(records.length), note: "MySQL 当前记录", icon: FeatureIcon}, {label: "已启用", value: String(enabledCount), note: "当前启用状态", icon: IconCheck, tone: "green"}, {label: "运行中", value: String(runningCount), note: "正在执行", icon: IconActivity, tone: "orange"}, {label: "待审核", value: String(reviewCount), note: "需要管理员处理", icon: IconClock, tone: "purple"}]}/>
+      <SearchFilters query={query} onQuery={setQuery} placeholder={`搜索${config.label}名称、负责人或范围`} onReset={() => {setQuery(""); setStatus("全部状态");}} onSearch={() => onToast(`已找到 ${rows.length} 条${config.label}数据`)}><select value={status} onChange={(event) => setStatus(event.target.value)}><option>全部状态</option><option>已启用</option><option>运行中</option><option>待审核</option><option>已停用</option></select><select><option>全部负责人</option>{owners.map((owner) => <option key={owner}>{owner}</option>)}</select></SearchFilters>
+      <section className="panel business-table-card"><div className="business-table-head"><div><h2>{config.label}列表</h2><p>数据来自 MySQL · {config.domain}</p></div><span className="record-count">共 {rows.length} 条</span></div><div className="table-scroll"><table><thead><tr><th>名称</th><th>业务范围</th><th>负责人</th><th>状态</th><th>启用</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{rows.map((record) => <tr key={record.id}><td><button className="table-link" onClick={() => setSelected(record)}>{record.name}</button></td><td>{record.scope}</td><td>{record.owner}</td><td><Pill tone={record.status === "已启用" ? "green" : record.status === "待审核" ? "orange" : "blue"}>{record.status}</Pill></td><td><Toggle checked={record.enabled} label={`${record.name}状态`} onChange={() => setRecords((current) => current.map((item) => item.id === record.id ? {...item, enabled: !item.enabled, status: item.enabled ? "已停用" : "已启用"} : item))}/></td><td>{record.updated}</td><td><button className="table-link" onClick={() => setSelected(record)}>查看</button></td></tr>)}</tbody></table>{!rows.length && <EmptyFiltered/>}</div></section>
+      <FormDialog open={dialog} title={config.action} subtitle={`创建新的${config.label}配置`} onClose={() => setDialog(false)} onSave={save} fields={[{key: "name", label: `${config.label}名称`, placeholder: `请输入${config.label}名称`}, {key: "owner", label: "负责人", type: "select", options: owners.length ? owners : ["未分配"]}, {key: "scope", label: "业务范围", type: "select", options: scopes.length ? scopes : ["未配置"]}, {key: "description", label: "配置说明", type: "textarea", full: true, placeholder: "补充业务目标和执行规则"}]}/>
+      <Drawer open={!!selected} title={selected?.name || ""} subtitle={`${config.domain} · ${config.group}`} onClose={() => setSelected(null)}><h3>数据库记录</h3><div className="detail-list"><div><span>业务范围</span><strong>{selected?.scope}</strong></div><div><span>负责人</span><strong>{selected?.owner}</strong></div><div><span>当前状态</span><strong>{selected?.status}</strong></div><div><span>最近更新</span><strong>{selected?.updated}</strong></div></div></Drawer>
+    </section>
+  );
+}
+
 export function BusinessPageRouter({ activePage, onToast, onAction, data }) {
   const props = { onToast, onAction, data };
-  if (domainConfigs[activePage]) return <DomainOverviewPage pageId={activePage} onToast={onToast} />;
+  if (domainConfigs[activePage]) return <DatabaseDomainOverviewPage pageId={activePage} onToast={onToast} data={data} />;
   if (activePage.startsWith("claw-")) return <ClawWorkspacePage activePage={activePage} onToast={onToast} data={data} />;
   if (activePage === "wechat-chat") return <WechatChatPage onToast={onToast} data={data} />;
-  if (FEATURE_PAGE_CONFIG[activePage]) return <DomainFeaturePage key={activePage} pageId={activePage} onToast={onToast} />;
+  if (FEATURE_PAGE_CONFIG[activePage]) return <DatabaseDomainFeaturePage key={activePage} pageId={activePage} onToast={onToast} data={data} />;
   switch (activePage) {
     case "high-value": return <HighValuePage {...props} />;
     case "logs": return <LogsPage {...props} />;
@@ -793,9 +934,9 @@ export function BusinessPageRouter({ activePage, onToast, onAction, data }) {
     case "tag-logs": return <TagLogsPage {...props} />;
     case "products": return <ProductsPage {...props} />;
     case "orders": return <OrdersPage {...props} />;
-    case "fans": return <FansInsightPage {...props} />;
-    case "member-insight": return <MemberInsightPage {...props} />;
-    case "sales-insight": return <SalesInsightPage {...props} />;
+    case "fans": return <DatabaseFansInsightPage {...props} />;
+    case "member-insight": return <DatabaseMemberInsightPage {...props} />;
+    case "sales-insight": return <DatabaseSalesInsightPage {...props} />;
     default: return null;
   }
 }

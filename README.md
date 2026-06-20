@@ -41,16 +41,17 @@ pnpm dev
 
 ## 连接真实 MySQL 数据
 
-前端会优先请求 `/api/app-data`，由 `server/api.py` 从 MySQL 读取会员、分群、标签、商品、订单、微信会话和微智 Claw 数据。API 不可用时页面会自动使用本地兜底数据，避免白屏。
+前端只请求 `/api/app-data`，由 `server/api.py` 从 MySQL 读取会员、分群、标签、商品、订单、微信会话、各业务域功能记录和微智 Claw 数据。项目不再包含运行时演示数据回退；API 或数据库不可用时会显示明确的连接失败页面。
 
 ```bash
 cp server/.env.example server/.env
 python3 -m pip install -r server/requirements.txt
+python3 server/migrate.py
 python3 server/api.py
 pnpm dev
 ```
 
-本地 Vite 已代理 `/api` 到 `http://127.0.0.1:8787`。线上部署时建议在宝塔中把站点的 `/api` 反向代理到 API 进程，或构建前设置 `VITE_API_BASE_URL` 指向 API 地址。
+本地 Vite 已代理 `/api` 到 `http://127.0.0.1:8787`。线上部署时必须在宝塔中把站点的 `/api` 反向代理到 API 进程，或构建前设置 `VITE_API_BASE_URL` 指向公开的 HTTPS API 地址。纯静态 GitHub Pages 未配置 API 时只会显示数据库连接失败状态。
 
 ## 构建
 

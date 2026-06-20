@@ -22,6 +22,7 @@ deploy/baota/mysql/docker-compose.yml  # 宝塔 Docker Compose 部署 MySQL
 deploy/baota/mysql/.env.example        # 环境变量模板
 deploy/baota/mysql/README.md           # 上传到宝塔后的最短执行说明
 server/api.py                          # 前端读取真实数据的 API 服务
+server/migrate.py                      # 可重复执行 schema 和初始化数据
 server/.env.example                    # API 数据库连接环境变量模板
 server/requirements.txt                # API Python 依赖
 ```
@@ -167,9 +168,10 @@ docker exec -it member-crm-mysql mysql -u member_crm_app -p member_crm -e "selec
 2. 安装 API 依赖：`python3 -m pip install -r server/requirements.txt`。
 3. 启动 API：`python3 server/api.py`。
 4. 在宝塔站点中把 `/api` 反向代理到 `http://127.0.0.1:8787`。
-5. 前端正常构建并部署，页面会从 `/api/app-data` 读取数据库数据。
+5. 首次部署或 schema 更新后执行 `python3 server/migrate.py`。
+6. 前端正常构建并部署，页面会从 `/api/app-data` 读取数据库数据。
 
-如果前端部署在 GitHub Pages 这类纯静态环境，需要构建时设置 `VITE_API_BASE_URL=https://你的API域名`，否则静态页面无法访问宝塔内网 API。
+如果前端部署在 GitHub Pages 这类纯静态环境，必须在构建时设置 `VITE_API_BASE_URL=https://你的API域名`。API 必须支持 HTTPS 和跨域访问；未配置时页面会显示 MySQL 连接失败，不会回退到静态演示数据。
 
 ## 后端连接串
 

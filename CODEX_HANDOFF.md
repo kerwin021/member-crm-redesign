@@ -3,7 +3,7 @@
 ## Project
 
 - Repository: https://github.com/kerwin021/member-crm-redesign
-- Live preview: https://kerwin021.github.io/member-crm-redesign/ (static fallback unless an API base URL is configured)
+- Live preview: https://kerwin021.github.io/member-crm-redesign/ (requires a public HTTPS API configured at build time)
 - MySQL API implementation commit: `68d61e6`
 - For the latest main commit, run `git log -1 --oneline`.
 - Latest known gh-pages commit: `bcd6d51` (not updated in the MySQL API pass)
@@ -26,6 +26,9 @@ Note: 企业管理 and 开发平台 have been merged into 配置管理. Their le
 
 Recent completed work:
 
+- Enforced MySQL as the only runtime business-data source; API failures now render an explicit reconnect screen.
+- Added database-backed business-domain overviews, feature-page records, tag scenes, insight rankings, Claw controls, and WeChat messages.
+- Added `server/migrate.py` and a short-lived API cache to avoid duplicate remote MySQL aggregation requests.
 - Designed and initialized the MySQL database under `database/mysql/`.
 - Added `server/api.py` for reading real MySQL data through `/api/app-data`.
 - Added `src/data/useAppData.js` and replaced key static dashboard/list data with API-backed data.
@@ -73,15 +76,15 @@ python3 server/api.py
 pnpm dev
 ```
 
-The frontend fetches `/api/app-data`. If the API is unavailable, it falls back to bundled demo data instead of showing a blank page.
+The frontend fetches `/api/app-data` and accepts only responses marked as MySQL sourced. If the API is unavailable, it shows a database connection error and never falls back to bundled business data.
 
 ## Recommended Next Prompt For Codex
 
 ```text
-继续完善 member-crm-redesign 项目。当前目标是继续把原型从静态数据推进到真实数据/API：
+继续完善 member-crm-redesign 项目。当前所有运行时业务数据已统一从 MySQL API 获取：
 1. 保持顶部七个业务域和动态左侧菜单不变；企业管理、开发平台能力已合并到配置管理。
 2. 先阅读 server/api.py、src/data/useAppData.js、database/mysql/01_schema.sql、database/mysql/02_seed_demo.sql。
-3. 继续把剩余业务页的兜底静态数据改为 MySQL API 数据，优先营销、忠诚度、社交 SCRM、配置管理。
+3. 新增业务数据时先扩展 MySQL schema/seed 和 `server/api.py`，不要在前端增加业务数据回退。
 4. 所有可见入口必须可点击、有反馈，并兼容桌面和移动端。
 5. 修改后运行 Python 语法检查、生产构建，使用浏览器验证本地页面和 `/api/app-data`，提交并推送 main。
 6. 最终报告提交哈希、API 验证结果、页面验证结果和剩余风险。

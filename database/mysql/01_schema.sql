@@ -18,6 +18,34 @@ CREATE TABLE IF NOT EXISTS app_tenants (
   UNIQUE KEY uk_app_tenants_code (code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS app_ui_datasets (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT UNSIGNED NOT NULL,
+  dataset_key VARCHAR(120) NOT NULL,
+  payload_json JSON NOT NULL,
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_app_ui_datasets_tenant_key (tenant_id, dataset_key),
+  CONSTRAINT fk_app_ui_datasets_tenant FOREIGN KEY (tenant_id) REFERENCES app_tenants (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS app_feature_page_records (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT UNSIGNED NOT NULL,
+  page_id VARCHAR(120) NOT NULL,
+  name VARCHAR(180) NOT NULL,
+  owner VARCHAR(120) NOT NULL,
+  scope VARCHAR(120) NOT NULL,
+  status VARCHAR(32) NOT NULL DEFAULT 'enabled',
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  details_json JSON NULL,
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_app_feature_records_tenant_page_name (tenant_id, page_id, name),
+  KEY idx_app_feature_records_page (tenant_id, page_id, updated_at),
+  CONSTRAINT fk_app_feature_records_tenant FOREIGN KEY (tenant_id) REFERENCES app_tenants (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS org_organizations (
   id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   tenant_id BIGINT UNSIGNED NOT NULL,
@@ -240,6 +268,21 @@ CREATE TABLE IF NOT EXISTS crm_tags (
   PRIMARY KEY (id),
   UNIQUE KEY uk_crm_tags_tenant_name (tenant_id, name),
   CONSTRAINT fk_crm_tags_tenant FOREIGN KEY (tenant_id) REFERENCES app_tenants (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS crm_tag_scenes (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT UNSIGNED NOT NULL,
+  name VARCHAR(180) NOT NULL,
+  module VARCHAR(120) NOT NULL,
+  description TEXT NULL,
+  tags_json JSON NOT NULL,
+  enabled TINYINT(1) NOT NULL DEFAULT 1,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_crm_tag_scenes_tenant_name (tenant_id, name),
+  CONSTRAINT fk_crm_tag_scenes_tenant FOREIGN KEY (tenant_id) REFERENCES app_tenants (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS crm_member_tags (

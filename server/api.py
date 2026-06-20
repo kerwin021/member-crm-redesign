@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import json
 import os
+import threading
+import time
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -11,6 +13,8 @@ from pymysql.cursors import DictCursor
 
 
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+APP_DATA_CACHE = {"expires_at": 0.0, "payload": None}
+APP_DATA_CACHE_LOCK = threading.Lock()
 
 
 def load_env_file(path):
@@ -72,6 +76,17 @@ def as_int(value):
 
 def as_float(value):
     return float(value or 0)
+
+
+def parse_json_value(value, default=None):
+    if value is None:
+        return default
+    if isinstance(value, (dict, list, int, float, bool)):
+        return value
+    try:
+        return json.loads(value)
+    except (TypeError, ValueError):
+        return default
 
 
 def format_number(value):
@@ -213,6 +228,15 @@ def conversation_type_label(value):
         "group": "群聊",
         "official": "公众号",
     }.get(value or "", value or "聊天")
+
+
+def feature_status_label(value):
+    return {
+        "enabled": "已启用",
+        "running": "运行中",
+        "review": "待审核",
+        "disabled": "已停用",
+    }.get(value or "", value or "未知")
 
 
 def gender_label(value):
@@ -738,6 +762,250 @@ def load_app_data():
                 }
             )
 
+        stores = [
+            row["name"]
+            for row in query_all(conn, "SELECT name FROM org_stores WHERE tenant_id = %s ORDER BY name", (tenant_id,))
+        ]
+        register_range = query_one(
+            conn,
+            "SELECT MIN(DATE(register_at)) AS min_day, MAX(DATE(register_at)) AS max_day FROM crm_members WHERE tenant_id = %s",
+            (tenant_id,),
+        )
+
+        tag_scenes = [
+            {
+                "id": row["id"],
+                "name": row["name"],
+                "module": row["module"],
+                "desc": row["description"] or "",
+                "tags": parse_json_value(row["tags_json"], []),
+                "enabled": bool(row["enabled"]),
+            }
+            for row in query_all(
+                conn,
+                "SELECT id, name, module, description, tags_json, enabled FROM crm_tag_scenes WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
+                (tenant_id,),
+            )
+        ]
+
+        ui_datasets = {
+            row["dataset_key"]: parse_json_value(row["payload_json"], [])
+            for row in query_all(
+                conn,
+                "SELECT dataset_key, payload_json FROM app_ui_datasets WHERE tenant_id = %s",
+                (tenant_id,),
+            )
+        }
+
+        feature_pages = {}
+        feature_rows = query_all(
+            conn,
+            """
+            SELECT id, page_id, name, owner, scope, status, enabled, updated_at
+            FROM app_feature_page_records
+            WHERE tenant_id = %s
+            ORDER BY page_id, updated_at DESC, id DESC
+            """,
+            (tenant_id,),
+        )
+        for row in feature_rows:
+            feature_pages.setdefault(row["page_id"], []).append(
+                {
+                    "id": row["id"],
+                    "name": row["name"],
+                    "owner": row["owner"],
+                    "scope": row["scope"],
+                    "status": feature_status_label(row["status"]),
+                    "enabled": bool(row["enabled"]),
+                    "updated": format_dt(row["updated_at"], "%m-%d %H:%M"),
+                }
+            )
+
+        def table_count(table_name, where=""):
+            return as_int(query_one(conn, f"SELECT COUNT(*) AS total FROM {table_name} WHERE tenant_id = %s {where}", (tenant_id,))["total"])
+
+        def feature_tasks(page_ids):
+            result = []
+            for page_id in page_ids:
+                for record in feature_pages.get(page_id, []):
+                    progress = "100%" if record["status"] == "已启用" else ("72%" if record["status"] == "运行中" else "0%")
+                    result.append([record["name"], record["scope"], record["status"], progress])
+            return result[:5]
+
+        domain_overviews = {
+            "domain-marketing": {
+                "stats": [
+                    ["进行中活动", format_number(table_count("marketing_campaigns", "AND status = 'running'")), "来自营销活动表"],
+                    ["自动化任务", format_number(table_count("marketing_reach_tasks", "AND status = 'running'")), "实时运行任务"],
+                    ["可用优惠券", format_number(table_count("marketing_coupons", "AND status = 'active'")), "当前启用模板"],
+                    ["触达记录", format_number(table_count("marketing_reach_tasks")), "数据库累计任务"],
+                ],
+                "tasks": feature_tasks(["marketing-campaigns", "marketing-automation", "marketing-journeys", "marketing-reach"]),
+            },
+            "domain-loyalty": {
+                "stats": [
+                    ["会员等级", format_number(table_count("loyalty_membership_levels")), "已配置等级"],
+                    ["成长规则", format_number(table_count("loyalty_growth_rules")), "数据库规则"],
+                    ["会员权益", format_number(table_count("loyalty_member_benefits")), "已配置权益"],
+                    ["积分流水", format_number(table_count("loyalty_points_ledger")), "数据库累计流水"],
+                ],
+                "tasks": feature_tasks(["loyalty-levels", "loyalty-growth", "loyalty-benefits", "loyalty-points-mall"]),
+            },
+            "domain-scrm": {
+                "stats": [
+                    ["客户联系人", format_number(table_count("scrm_contacts")), "企业微信客户"],
+                    ["客户群", format_number(table_count("scrm_customer_groups")), "当前客户群"],
+                    ["群发任务", format_number(table_count("scrm_group_message_tasks")), "数据库任务"],
+                    ["内容素材", format_number(table_count("scrm_materials")), "素材库内容"],
+                ],
+                "tasks": feature_tasks(["scrm-contacts", "scrm-groups", "scrm-group-messages", "scrm-materials"]),
+            },
+            "domain-config": {
+                "stats": [
+                    ["系统参数", format_number(table_count("ops_system_parameters")), "数据库配置项"],
+                    ["组织与员工", format_number(table_count("org_employees")), "当前员工账号"],
+                    ["开放应用", format_number(table_count("dev_applications")), "开发平台应用"],
+                    ["调度任务", format_number(table_count("ops_scheduled_jobs")), "系统计划任务"],
+                ],
+                "tasks": feature_tasks(["config-scheduler", "enterprise-approvals", "dev-webhooks", "config-logs"]),
+            },
+        }
+
+        active_members = table_count("crm_members", "AND status = 'active'")
+        high_value_total = as_int(
+            query_one(
+                conn,
+                "SELECT COUNT(*) AS total FROM crm_member_metrics mm JOIN crm_members m ON m.id = mm.member_id WHERE m.tenant_id = %s AND mm.contribution_score >= 85",
+                (tenant_id,),
+            )["total"]
+        )
+        contact_total = table_count("scrm_contacts")
+        bound_contact_total = table_count("scrm_contacts", "AND member_id IS NOT NULL")
+
+        content_ranking = [
+            {"name": row["name"], "value": format_number(row["converted"])}
+            for row in query_all(
+                conn,
+                """
+                SELECT name,
+                       COALESCE(CAST(JSON_UNQUOTE(JSON_EXTRACT(metrics_json, '$.converted')) AS UNSIGNED), 0) AS converted
+                FROM marketing_reach_tasks
+                WHERE tenant_id = %s
+                ORDER BY converted DESC, id DESC
+                LIMIT 3
+                """,
+                (tenant_id,),
+            )
+        ]
+        funnel_totals = query_one(
+            conn,
+            """
+            SELECT
+              COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(metrics_json, '$.sent')) AS UNSIGNED)), 0) AS sent,
+              COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(metrics_json, '$.delivered')) AS UNSIGNED)), 0) AS delivered,
+              COALESCE(SUM(CAST(JSON_UNQUOTE(JSON_EXTRACT(metrics_json, '$.converted')) AS UNSIGNED)), 0) AS converted
+            FROM marketing_reach_tasks
+            WHERE tenant_id = %s
+            """,
+            (tenant_id,),
+        )
+        fan_funnel = [
+            {"label": "内容触达", "count": format_number(funnel_totals["sent"]), "value": 100},
+            {"label": "消息到达", "count": format_number(funnel_totals["delivered"]), "value": percent_value(funnel_totals["delivered"], funnel_totals["sent"])},
+            {"label": "转化会员", "count": format_number(funnel_totals["converted"]), "value": percent_value(funnel_totals["converted"], funnel_totals["sent"])},
+        ]
+
+        lifecycle = [
+            {"label": "活跃会员", "value": percent_value(active_members, total_members), "tone": "green"},
+            {"label": "待唤醒", "value": percent_value(table_count("crm_members", "AND status = 'to_wake'"), total_members), "tone": "orange"},
+            {"label": "冻结会员", "value": percent_value(table_count("crm_members", "AND status = 'frozen'"), total_members), "tone": "red"},
+        ]
+
+        sales_channels_raw = query_all(
+            conn,
+            "SELECT channel AS name, SUM(paid_amount) AS total FROM sales_orders WHERE tenant_id = %s GROUP BY channel ORDER BY total DESC",
+            (tenant_id,),
+        )
+        sales_channels = [
+            {"name": row["name"], "value": round(as_float(row["total"]) * 100 / sales_total, 2) if sales_total else 0}
+            for row in sales_channels_raw
+        ]
+        product_ranking = [
+            {"name": row["name"], "value": format_money(row["sales_amount"])}
+            for row in query_all(
+                conn,
+                "SELECT name, price * sales_qty AS sales_amount FROM catalog_products WHERE tenant_id = %s ORDER BY sales_amount DESC LIMIT 3",
+                (tenant_id,),
+            )
+        ]
+        store_ranking = [
+            {"name": row["name"], "value": format_money(row["sales_amount"])}
+            for row in query_all(
+                conn,
+                """
+                SELECT COALESCE(s.name, '未归属门店') AS name, SUM(o.paid_amount) AS sales_amount
+                FROM sales_orders o
+                LEFT JOIN org_stores s ON s.id = o.store_id
+                WHERE o.tenant_id = %s
+                GROUP BY s.id, s.name
+                ORDER BY sales_amount DESC
+                LIMIT 3
+                """,
+                (tenant_id,),
+            )
+        ]
+        repeat_members = as_int(
+            query_one(
+                conn,
+                "SELECT COUNT(*) AS total FROM (SELECT member_id FROM sales_orders WHERE tenant_id = %s AND member_id IS NOT NULL GROUP BY member_id HAVING COUNT(*) > 1) repeated",
+                (tenant_id,),
+            )["total"]
+        )
+        ordering_members = as_int(query_one(conn, "SELECT COUNT(DISTINCT member_id) AS total FROM sales_orders WHERE tenant_id = %s AND member_id IS NOT NULL", (tenant_id,))["total"])
+
+        insights = {
+            "fans": {
+                "stats": [
+                    ["客户总数", format_number(contact_total), "来自 SCRM 联系人"],
+                    ["今日新增", format_number(latest_day_new), "来自会员注册数据"],
+                    ["活跃会员", format_number(active_members), ratio(active_members, total_members)],
+                    ["会员绑定率", ratio(bound_contact_total, contact_total), "企业微信客户绑定"],
+                ],
+                "channels": platform_rows,
+                "contentRanking": content_ranking,
+                "funnel": fan_funnel,
+                "recommendation": claw_suggestions[0] if claw_suggestions else None,
+            },
+            "members": {
+                "stats": [
+                    ["有效会员", format_number(total_members), f"本月新增 {format_number(month_new)}"],
+                    ["活跃会员", format_number(active_members), ratio(active_members, total_members)],
+                    ["高价值会员", format_number(high_value_total), ratio(high_value_total, total_members)],
+                    ["会员等级", format_number(len(level_rows)), "数据库等级配置"],
+                ],
+                "lifecycle": lifecycle,
+                "migration": [
+                    ["高价值会员", format_number(high_value_total), "当前高价值"],
+                    ["待唤醒会员", format_number(table_count("crm_members", "AND status = 'to_wake'")), "需要运营触达"],
+                    ["活跃稳定率", ratio(active_members, total_members), "当前活跃状态"],
+                ],
+                "levels": [{"label": row["name"], "value": percent_value(row["value"], total_members)} for row in level_rows],
+                "recommendation": claw_suggestions[1] if len(claw_suggestions) > 1 else (claw_suggestions[0] if claw_suggestions else None),
+            },
+            "sales": {
+                "stats": [
+                    ["累计销售额", format_money(sales_total), "来自订单实付金额"],
+                    ["订单总数", format_number(order_total), "数据库订单"],
+                    ["会员客单价", format_money_exact(sales_total / order_total if order_total else 0), "实付金额 / 订单数"],
+                    ["复购会员占比", ratio(repeat_members, ordering_members), "下单两次及以上"],
+                ],
+                "channels": sales_channels,
+                "productRanking": product_ranking,
+                "storeRanking": store_ranking,
+                "recommendation": claw_suggestions[2] if len(claw_suggestions) > 2 else (claw_suggestions[0] if claw_suggestions else None),
+            },
+        }
+
         return {
             "meta": {
                 "source": "mysql",
@@ -829,6 +1097,21 @@ def load_app_data():
                     (tenant_id,),
                 )
             ],
+            "filterOptions": {
+                "stores": stores,
+                "registrationRange": (
+                    f"{format_date(register_range['min_day'])} 至 {format_date(register_range['max_day'])}"
+                    if register_range and register_range["min_day"] and register_range["max_day"]
+                    else "暂无注册周期"
+                ),
+            },
+            "tagScenes": tag_scenes,
+            "featurePages": feature_pages,
+            "domainOverviews": domain_overviews,
+            "insights": insights,
+            "clawToolEntrances": ui_datasets.get("claw_tool_entrances", []),
+            "clawScopeOptions": ui_datasets.get("claw_scope_options", []),
+            "clawFollowUps": ui_datasets.get("claw_followups", []),
             "businessStats": {
                 "salesTotal": format_money(sales_total),
                 "orderTotal": format_number(order_total),
@@ -837,6 +1120,18 @@ def load_app_data():
                 "reachTasks": as_int(query_one(conn, "SELECT COUNT(*) AS total FROM marketing_reach_tasks WHERE tenant_id = %s", (tenant_id,))["total"]),
             },
         }
+
+
+def get_app_data():
+    now = time.monotonic()
+    with APP_DATA_CACHE_LOCK:
+        if APP_DATA_CACHE["payload"] is not None and now < APP_DATA_CACHE["expires_at"]:
+            return APP_DATA_CACHE["payload"]
+        payload = load_app_data()
+        ttl = max(0, int(env("API_CACHE_TTL_SECONDS", "30")))
+        APP_DATA_CACHE["payload"] = payload
+        APP_DATA_CACHE["expires_at"] = time.monotonic() + ttl
+        return payload
 
 
 def response(handler, status, body):
@@ -863,7 +1158,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                 response(self, 200, {"ok": True, "database": config["database"], "host": config["host"], "port": config["port"]})
                 return
             if path == "/api/app-data":
-                response(self, 200, load_app_data())
+                response(self, 200, get_app_data())
                 return
             response(self, 404, {"error": "not_found"})
         except Exception as exc:

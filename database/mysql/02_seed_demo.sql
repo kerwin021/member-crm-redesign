@@ -428,6 +428,30 @@ ON DUPLICATE KEY UPDATE
   last_message_preview = VALUES(last_message_preview),
   last_message_at = VALUES(last_message_at);
 
+SET @wechat_conversation_id = (
+  SELECT id FROM wechat_conversations
+  WHERE tenant_id = @tenant_id AND account_id = @wechat_account_id AND external_id = 'yingyou'
+);
+
+INSERT INTO wechat_messages (tenant_id, conversation_id, sender_type, sender_name, content, sent_at)
+SELECT @tenant_id, @wechat_conversation_id, 'staff', '超级管理员', '类似登录电脑端微信一样', '2026-05-14 15:32:18'
+WHERE NOT EXISTS (SELECT 1 FROM wechat_messages WHERE conversation_id = @wechat_conversation_id AND sent_at = '2026-05-14 15:32:18');
+INSERT INTO wechat_messages (tenant_id, conversation_id, sender_type, sender_name, content, sent_at)
+SELECT @tenant_id, @wechat_conversation_id, 'customer', '小柯', '那就是在你们的系统里登录的微信咯？', '2026-05-14 15:34:32'
+WHERE NOT EXISTS (SELECT 1 FROM wechat_messages WHERE conversation_id = @wechat_conversation_id AND sent_at = '2026-05-14 15:34:32');
+INSERT INTO wechat_messages (tenant_id, conversation_id, sender_type, sender_name, content, sent_at)
+SELECT @tenant_id, @wechat_conversation_id, 'customer', '小柯', '不是官方的客户端？', '2026-05-14 15:34:37'
+WHERE NOT EXISTS (SELECT 1 FROM wechat_messages WHERE conversation_id = @wechat_conversation_id AND sent_at = '2026-05-14 15:34:37');
+INSERT INTO wechat_messages (tenant_id, conversation_id, sender_type, sender_name, content, sent_at)
+SELECT @tenant_id, @wechat_conversation_id, 'staff', '超级管理员', '我们的系统不是腾讯官方客户端，相关能力由企业自有系统提供。', '2026-05-14 15:35:59'
+WHERE NOT EXISTS (SELECT 1 FROM wechat_messages WHERE conversation_id = @wechat_conversation_id AND sent_at = '2026-05-14 15:35:59');
+INSERT INTO wechat_messages (tenant_id, conversation_id, sender_type, sender_name, content, sent_at)
+SELECT @tenant_id, @wechat_conversation_id, 'customer', '小柯', '那会被腾讯封号吧？', '2026-05-14 15:36:27'
+WHERE NOT EXISTS (SELECT 1 FROM wechat_messages WHERE conversation_id = @wechat_conversation_id AND sent_at = '2026-05-14 15:36:27');
+INSERT INTO wechat_messages (tenant_id, conversation_id, sender_type, sender_name, content, sent_at)
+SELECT @tenant_id, @wechat_conversation_id, 'staff', '超级管理员', '请按企业微信平台规则和授权范围规范使用。', '2026-05-14 15:37:02'
+WHERE NOT EXISTS (SELECT 1 FROM wechat_messages WHERE conversation_id = @wechat_conversation_id AND sent_at = '2026-05-14 15:37:02');
+
 INSERT INTO ops_system_parameters (tenant_id, param_key, value_json, description, updated_by)
 VALUES
   (@tenant_id, 'member.phone_mask.enabled', JSON_EXTRACT('true', '$'), '会员手机号脱敏', @admin_user_id),
@@ -437,5 +461,77 @@ ON DUPLICATE KEY UPDATE
   value_json = VALUES(value_json),
   description = VALUES(description),
   updated_by = VALUES(updated_by);
+
+INSERT INTO crm_tag_scenes (tenant_id, name, module, description, tags_json, enabled)
+VALUES
+  (@tenant_id, '首页会员概览', '用户数据', '用于首页关键指标的人群筛选', JSON_ARRAY('高价值会员', '待唤醒会员'), TRUE),
+  (@tenant_id, '优惠券精准发放', '营销管理', '发券任务创建时的人群筛选', JSON_ARRAY('价格敏感', '生日会员'), TRUE),
+  (@tenant_id, '新品推荐', '营销管理', '新品上市时的推荐目标人群', JSON_ARRAY('新品偏好', '高价值会员'), TRUE),
+  (@tenant_id, '门店运营看板', '配置管理', '门店会员结构和到店行为分析', JSON_ARRAY('门店自提'), FALSE)
+ON DUPLICATE KEY UPDATE
+  module = VALUES(module),
+  description = VALUES(description),
+  tags_json = VALUES(tags_json),
+  enabled = VALUES(enabled);
+
+INSERT INTO app_ui_datasets (tenant_id, dataset_key, payload_json)
+VALUES
+  (@tenant_id, 'claw_tool_entrances', JSON_ARRAY(
+    JSON_OBJECT('label', '数据洞察', 'question', '本月新增会员来源占比如何？'),
+    JSON_OBJECT('label', '生成方案', 'question', '帮我生成高价值会员提升方案'),
+    JSON_OBJECT('label', '创建任务', 'question', '把沉睡会员唤醒计划生成执行任务'),
+    JSON_OBJECT('label', '推荐问题', 'question', '有哪些值得持续关注的会员问题？')
+  )),
+  (@tenant_id, 'claw_scope_options', JSON_ARRAY('近7天', '近30天', '本月', '高价值会员')),
+  (@tenant_id, 'claw_followups', JSON_ARRAY('继续拆解高价值人群', '生成可执行任务', '对比上一个周期'))
+ON DUPLICATE KEY UPDATE payload_json = VALUES(payload_json);
+
+INSERT INTO app_feature_page_records (tenant_id, page_id, name, owner, scope, status, enabled, updated_at)
+VALUES
+  (@tenant_id, 'wechat-community', '新品体验群运营', '会员运营组', '12 个社群', 'running', TRUE, '2026-06-19 14:26:00'),
+  (@tenant_id, 'wechat-moments', '夏日新品种草', '会员运营组', '全部会员', 'enabled', TRUE, '2026-06-19 14:10:00'),
+  (@tenant_id, 'wechat-auto-reply', '售后咨询回复', '超级管理员', '全部客户', 'enabled', TRUE, '2026-06-19 13:45:00'),
+  (@tenant_id, 'marketing-campaigns', '夏日会员尝鲜季', '会员运营组', '全部会员', 'running', TRUE, '2026-06-19 13:30:00'),
+  (@tenant_id, 'marketing-automation', '注册后 24 小时关怀', '系统自动', '新注册会员', 'enabled', TRUE, '2026-06-19 13:20:00'),
+  (@tenant_id, 'marketing-journeys', '新会员 30 天培育', '会员运营组', '新会员', 'running', TRUE, '2026-06-19 13:10:00'),
+  (@tenant_id, 'marketing-coupons', '新人满 50 减 10', '超级管理员', '新会员', 'enabled', TRUE, '2026-06-19 12:50:00'),
+  (@tenant_id, 'marketing-reach', '新品上市通知', '会员运营组', '新品偏好会员', 'running', TRUE, '2026-06-19 12:40:00'),
+  (@tenant_id, 'marketing-records', '短信发送记录', '系统自动', '全部触达任务', 'enabled', TRUE, '2026-06-19 12:30:00'),
+  (@tenant_id, 'loyalty-levels', '普通卡', '超级管理员', '全部会员', 'enabled', TRUE, '2026-06-19 12:20:00'),
+  (@tenant_id, 'loyalty-growth', '订单消费成长值', '系统自动', '有效订单', 'enabled', TRUE, '2026-06-19 12:10:00'),
+  (@tenant_id, 'loyalty-benefits', '会员专享价', '会员运营组', '等级会员', 'enabled', TRUE, '2026-06-19 12:00:00'),
+  (@tenant_id, 'loyalty-points-rules', '消费 1 元积 1 分', '超级管理员', '全部会员', 'enabled', TRUE, '2026-06-19 11:50:00'),
+  (@tenant_id, 'loyalty-points-mall', '10 元无门槛券', '会员运营组', '积分会员', 'enabled', TRUE, '2026-06-19 11:40:00'),
+  (@tenant_id, 'loyalty-points-ledger', '消费积分入账', '系统自动', '全部流水', 'enabled', TRUE, '2026-06-19 11:30:00'),
+  (@tenant_id, 'scrm-contacts', '林晓然', '会员运营组', '企业微信客户', 'enabled', TRUE, '2026-06-19 11:20:00'),
+  (@tenant_id, 'scrm-groups', '杭州西湖店会员群', '会员运营组', '门店会员', 'running', TRUE, '2026-06-19 11:10:00'),
+  (@tenant_id, 'scrm-welcome', '新会员欢迎语', '超级管理员', '新客户', 'enabled', TRUE, '2026-06-19 11:00:00'),
+  (@tenant_id, 'scrm-group-messages', '周末会员福利', '会员运营组', '客户群', 'review', FALSE, '2026-06-19 10:50:00'),
+  (@tenant_id, 'scrm-materials', '夏日新品海报', '会员运营组', '全部员工', 'enabled', TRUE, '2026-06-19 10:40:00'),
+  (@tenant_id, 'scrm-conversations', '客户咨询记录', '系统自动', '全部会话', 'enabled', TRUE, '2026-06-19 10:30:00'),
+  (@tenant_id, 'config-parameters', '会员手机号脱敏', '超级管理员', '全局', 'enabled', TRUE, '2026-06-19 10:20:00'),
+  (@tenant_id, 'config-templates', '会员注册成功通知', '会员运营组', '全部渠道', 'enabled', TRUE, '2026-06-19 10:10:00'),
+  (@tenant_id, 'config-dictionaries', '会员来源字典', '超级管理员', '全局', 'enabled', TRUE, '2026-06-19 10:00:00'),
+  (@tenant_id, 'config-scheduler', '会员等级日终计算', '系统自动', '全部会员', 'running', TRUE, '2026-06-19 09:50:00'),
+  (@tenant_id, 'config-logs', '管理员登录日志', '系统自动', '全部管理员', 'enabled', TRUE, '2026-06-19 09:40:00'),
+  (@tenant_id, 'config-security', '管理员密码策略', '超级管理员', '管理员', 'enabled', TRUE, '2026-06-19 09:30:00'),
+  (@tenant_id, 'enterprise-org', '一鸣食品总部', '超级管理员', '全公司', 'enabled', TRUE, '2026-06-19 09:20:00'),
+  (@tenant_id, 'enterprise-stores', '杭州西湖店', '区域运营', '杭州区域', 'enabled', TRUE, '2026-06-19 09:10:00'),
+  (@tenant_id, 'enterprise-employees', '区域运营经理', '超级管理员', '区域组织', 'enabled', TRUE, '2026-06-19 09:00:00'),
+  (@tenant_id, 'enterprise-roles', '超级管理员', '超级管理员', '全局', 'enabled', TRUE, '2026-06-19 08:50:00'),
+  (@tenant_id, 'enterprise-approvals', '优惠券活动审批', '会员运营组', '营销活动', 'review', FALSE, '2026-06-19 08:40:00'),
+  (@tenant_id, 'enterprise-audit', '权限配置变更', '系统自动', '全部组织', 'enabled', TRUE, '2026-06-19 08:30:00'),
+  (@tenant_id, 'dev-apps', '会员数据同步应用', '开发团队', '会员数据', 'enabled', TRUE, '2026-06-19 08:20:00'),
+  (@tenant_id, 'dev-api-docs', '会员中心 API', '开发团队', '开放平台', 'enabled', TRUE, '2026-06-19 08:10:00'),
+  (@tenant_id, 'dev-permissions', '会员基础信息读取', '超级管理员', '开放应用', 'enabled', TRUE, '2026-06-19 08:00:00'),
+  (@tenant_id, 'dev-webhooks', '会员注册事件', '开发团队', '业务事件', 'running', TRUE, '2026-06-19 07:50:00'),
+  (@tenant_id, 'dev-events', '会员等级变更', '开发团队', '事件总线', 'enabled', TRUE, '2026-06-19 07:40:00'),
+  (@tenant_id, 'dev-call-logs', '会员查询接口', '系统自动', 'API 调用', 'enabled', TRUE, '2026-06-19 07:30:00')
+ON DUPLICATE KEY UPDATE
+  owner = VALUES(owner),
+  scope = VALUES(scope),
+  status = VALUES(status),
+  enabled = VALUES(enabled),
+  updated_at = VALUES(updated_at);
 
 COMMIT;
