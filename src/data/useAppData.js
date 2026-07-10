@@ -1,11 +1,17 @@
 import { useCallback, useEffect, useState } from "react";
+import { DEMO_DATA } from "./demoData.js";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+const PREVIEW_MODE = import.meta.env.VITE_SITES_PREVIEW === "true";
 
 export function useAppData() {
-  const [state, setState] = useState({ data: null, status: "loading", error: null });
+  const [state, setState] = useState({ data: PREVIEW_MODE ? DEMO_DATA : null, status: PREVIEW_MODE ? "preview" : "loading", error: null });
 
   const load = useCallback(() => {
+    if (PREVIEW_MODE) {
+      setState({ data: DEMO_DATA, status: "preview", error: null });
+      return () => {};
+    }
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), 30000);
     setState((current) => ({ data: current.data, status: "loading", error: null }));

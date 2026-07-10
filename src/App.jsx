@@ -618,7 +618,7 @@ export function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  if (dataStatus !== "live" || !appData) {
+  if ((dataStatus !== "live" && dataStatus !== "preview") || !appData) {
     return <DatabaseState status={dataStatus} error={dataError} onRetry={reloadData} />;
   }
 

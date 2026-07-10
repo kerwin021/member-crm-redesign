@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const dist = resolve(root, "dist");
 
+if (!process.env.VITE_API_BASE_URL) process.env.VITE_SITES_PREVIEW = "true";
 await rm(dist, { recursive: true, force: true });
 await build({ configFile: resolve(root, "vite.config.mjs") });
 
