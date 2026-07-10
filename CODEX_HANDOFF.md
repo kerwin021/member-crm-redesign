@@ -26,6 +26,9 @@ Note: 企业管理 and 开发平台 have been merged into 配置管理. Their le
 
 Recent completed work:
 
+- Added the database-backed 单客模型 / LTV prototype under 用户数据 → 用户洞察.
+- Implemented a complete company → region → store → segment → strategy → task → review drilldown, with object switching, backwards navigation, target-versus-actual review charts, reusable conclusions, reset, and summary export interactions.
+- Added `analytics_ltv_nodes` and exposed its 2026-06-25 snapshot through `/api/app-data` as `ltvModel`; the frontend has no LTV business-data fallback.
 - Enforced MySQL as the only runtime business-data source; API failures now render an explicit reconnect screen.
 - Added database-backed business-domain overviews, feature-page records, tag scenes, insight rankings, Claw controls, and WeChat messages.
 - Added `server/migrate.py` and a short-lived API cache to avoid duplicate remote MySQL aggregation requests.
@@ -83,7 +86,7 @@ The frontend fetches `/api/app-data` and accepts only responses marked as MySQL 
 ```text
 继续完善 member-crm-redesign 项目。当前所有运行时业务数据已统一从 MySQL API 获取：
 1. 保持顶部七个业务域和动态左侧菜单不变；企业管理、开发平台能力已合并到配置管理。
-2. 先阅读 server/api.py、src/data/useAppData.js、database/mysql/01_schema.sql、database/mysql/02_seed_demo.sql。
+2. 先阅读 server/api.py、src/data/useAppData.js、src/LtvModelPage.jsx、database/mysql/01_schema.sql、database/mysql/02_seed_demo.sql。
 3. 新增业务数据时先扩展 MySQL schema/seed 和 `server/api.py`，不要在前端增加业务数据回退。
 4. 所有可见入口必须可点击、有反馈，并兼容桌面和移动端。
 5. 修改后运行 Python 语法检查、生产构建，使用浏览器验证本地页面和 `/api/app-data`，提交并推送 main。
@@ -95,9 +98,11 @@ The frontend fetches `/api/app-data` and accepts only responses marked as MySQL 
 - Production build passes.
 - `python3 -m py_compile server/api.py` passes.
 - `/api/health` returns 200 when MySQL env vars are configured.
-- `/api/app-data` returns 200 and includes dashboard, members, products, orders, WeChat conversations, and Claw data.
+- `/api/app-data` returns 200 and includes dashboard, members, products, orders, WeChat conversations, Claw data, and `ltvModel` with all seven node types.
 - Dashboard summary, trends, source rows, member levels, portrait cards, and value quadrant read from API data.
 - 会员列表、商品库、订单管理 display MySQL rows.
+- 单客模型 / LTV supports company → region → store → segment → strategy → task → review drilldown, object switching, backwards navigation, reset, review generation, strategy reuse, and summary export.
+- 单客模型 / LTV remains usable at 390px width without page-level horizontal overflow.
 - Top business domain order starts with 微智 Claw, then 用户数据.
 - Top business domains no longer include 企业管理 or 开发平台; those menus appear under 配置管理.
 - 微智 Claw left menu only includes 本期洞察、智能问答、推荐问题.

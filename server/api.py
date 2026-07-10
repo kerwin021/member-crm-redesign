@@ -193,6 +193,16 @@ LEVEL_COLORS = {
 
 COLOR_CYCLE = ["blue", "green", "orange", "purple", "teal", "pink"]
 
+LTV_STAGES = [
+    {"id": "company", "label": "公司", "prompt": "全局价值盘点"},
+    {"id": "region", "label": "区域", "prompt": "定位增长区域"},
+    {"id": "store", "label": "门店", "prompt": "识别重点门店"},
+    {"id": "segment", "label": "人群包", "prompt": "锁定运营对象"},
+    {"id": "strategy", "label": "策略", "prompt": "选择最优动作"},
+    {"id": "task", "label": "任务", "prompt": "落到执行责任"},
+    {"id": "review", "label": "复盘", "prompt": "验证价值提升"},
+]
+
 
 def status_label(value):
     return {
@@ -236,6 +246,16 @@ def feature_status_label(value):
         "running": "运行中",
         "review": "待审核",
         "disabled": "已停用",
+    }.get(value or "", value or "未知")
+
+
+def ltv_status_label(value):
+    return {
+        "active": "可下钻",
+        "attention": "重点关注",
+        "recommended": "模型推荐",
+        "running": "执行中",
+        "completed": "已复盘",
     }.get(value or "", value or "未知")
 
 
@@ -821,6 +841,42 @@ def load_app_data():
                 }
             )
 
+        ltv_rows = query_all(
+            conn,
+            """
+            SELECT id, parent_id, node_type, node_code, name, summary,
+                   question_text, usage_guide, status, metrics_json,
+                   sort_order, snapshot_date
+            FROM analytics_ltv_nodes
+            WHERE tenant_id = %s
+            ORDER BY FIELD(node_type, 'company', 'region', 'store', 'segment', 'strategy', 'task', 'review'),
+                     sort_order, id
+            """,
+            (tenant_id,),
+        )
+        ltv_nodes = [
+            {
+                "id": row["id"],
+                "parentId": row["parent_id"],
+                "type": row["node_type"],
+                "code": row["node_code"],
+                "name": row["name"],
+                "summary": row["summary"],
+                "questionText": row["question_text"],
+                "usageGuide": row["usage_guide"],
+                "status": ltv_status_label(row["status"]),
+                "statusCode": row["status"],
+                "metrics": parse_json_value(row["metrics_json"], {}),
+                "sortOrder": as_int(row["sort_order"]),
+            }
+            for row in ltv_rows
+        ]
+        ltv_model = {
+            "asOf": format_date(ltv_rows[0]["snapshot_date"]) if ltv_rows else "",
+            "stages": LTV_STAGES,
+            "nodes": ltv_nodes,
+        }
+
         def table_count(table_name, where=""):
             return as_int(query_one(conn, f"SELECT COUNT(*) AS total FROM {table_name} WHERE tenant_id = %s {where}", (tenant_id,))["total"])
 
@@ -1106,6 +1162,7 @@ def load_app_data():
                 ),
             },
             "tagScenes": tag_scenes,
+            "ltvModel": ltv_model,
             "featurePages": feature_pages,
             "domainOverviews": domain_overviews,
             "insights": insights,

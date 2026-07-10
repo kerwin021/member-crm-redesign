@@ -534,4 +534,110 @@ ON DUPLICATE KEY UPDATE
   enabled = VALUES(enabled),
   updated_at = VALUES(updated_at);
 
+INSERT INTO analytics_ltv_nodes (
+  tenant_id, parent_id, node_type, node_code, name, summary,
+  question_text, usage_guide, status, metrics_json, sort_order, snapshot_date
+)
+VALUES (
+  @tenant_id, NULL, 'company', 'ltv-company-ym', '一鸣食品总部',
+  '全公司单客价值已形成统一口径，当前优先机会集中在三大区域的重点门店。',
+  '最终呈现全公司会员资产规模、平均 LTV、价值总量和重点机会区域。',
+  '经营负责人先判断公司级价值是否健康，再选择区域下钻定位增长来源。',
+  'active',
+  JSON_OBJECT(
+    'kpis', JSON_ARRAY(
+      JSON_OBJECT('label', '模型会员', 'value', '6 人', 'note', '覆盖当前有效样本', 'tone', 'blue'),
+      JSON_OBJECT('label', '平均 LTV', 'value', '¥14,532', 'note', '未来 12 个月预测', 'tone', 'green'),
+      JSON_OBJECT('label', '会员价值总量', 'value', '¥87,190', 'note', '当前模型快照', 'tone', 'orange'),
+      JSON_OBJECT('label', '重点区域', 'value', '3 个', 'note', '均可继续下钻', 'tone', 'purple')
+    ),
+    'details', JSON_ARRAY(
+      JSON_OBJECT('label', '模型口径', 'value', '未来 12 个月预测 LTV'),
+      JSON_OBJECT('label', '更新时间', 'value', '2026-06-25 18:00'),
+      JSON_OBJECT('label', '建议动作', 'value', '优先比较区域价值与提升空间')
+    )
+  ),
+  10, '2026-06-25'
+)
+ON DUPLICATE KEY UPDATE
+  name = VALUES(name), summary = VALUES(summary), question_text = VALUES(question_text),
+  usage_guide = VALUES(usage_guide), status = VALUES(status), metrics_json = VALUES(metrics_json),
+  sort_order = VALUES(sort_order), snapshot_date = VALUES(snapshot_date);
+
+SET @ltv_company_id = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-company-ym');
+
+INSERT INTO analytics_ltv_nodes (
+  tenant_id, parent_id, node_type, node_code, name, summary,
+  question_text, usage_guide, status, metrics_json, sort_order, snapshot_date
+)
+VALUES
+  (@tenant_id, @ltv_company_id, 'region', 'ltv-region-zhebei', '浙北区域', '价值总量最高，高价值会员集中，适合优先做深度经营。', '最终呈现区域价值规模、平均 LTV、重点门店和增长空间。', '区域负责人用它决定先投哪家门店、配置多少运营资源。', 'active', JSON_OBJECT('kpis', JSON_ARRAY(JSON_OBJECT('label','模型会员','value','3 人','note','杭州与绍兴样本','tone','blue'),JSON_OBJECT('label','平均 LTV','value','¥16,613','note','高于公司均值','tone','green'),JSON_OBJECT('label','价值总量','value','¥49,840','note','公司占比 57.2%','tone','orange'),JSON_OBJECT('label','优先门店','value','杭州西湖店','note','价值评分最高','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','机会判断','value','高价值深耕'),JSON_OBJECT('label','建议预算','value','公司预算的 45%'))),10,'2026-06-25'),
+  (@tenant_id, @ltv_company_id, 'region', 'ltv-region-zhedong', '浙东区域', '会员规模较小但单客价值稳定，适合做成长型会员升级。', '最终呈现区域单客价值和会员成长潜力。', '区域负责人用它判断是扩大拉新还是提升现有会员等级。', 'active', JSON_OBJECT('kpis', JSON_ARRAY(JSON_OBJECT('label','模型会员','value','1 人','note','宁波样本','tone','blue'),JSON_OBJECT('label','平均 LTV','value','¥16,730','note','高于公司均值','tone','green'),JSON_OBJECT('label','价值总量','value','¥16,730','note','公司占比 19.2%','tone','orange'),JSON_OBJECT('label','优先门店','value','宁波鄞州店','note','成长空间明确','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','机会判断','value','等级升级'),JSON_OBJECT('label','建议预算','value','公司预算的 25%'))),20,'2026-06-25'),
+  (@tenant_id, @ltv_company_id, 'region', 'ltv-region-zhenan', '浙南区域', '单客价值低于公司均值，优先识别待提升和流失风险会员。', '最终呈现区域价值短板、重点门店和可挽回空间。', '区域负责人用它定位问题门店，并决定先做唤醒还是权益激励。', 'attention', JSON_OBJECT('kpis', JSON_ARRAY(JSON_OBJECT('label','模型会员','value','2 人','note','温州与台州样本','tone','blue'),JSON_OBJECT('label','平均 LTV','value','¥10,310','note','低于公司均值','tone','orange'),JSON_OBJECT('label','价值总量','value','¥20,620','note','公司占比 23.6%','tone','green'),JSON_OBJECT('label','优先门店','value','温州鹿城店','note','提升空间最大','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','机会判断','value','价值提升'),JSON_OBJECT('label','建议预算','value','公司预算的 30%'))),30,'2026-06-25')
+ON DUPLICATE KEY UPDATE
+  parent_id = VALUES(parent_id), name = VALUES(name), summary = VALUES(summary),
+  question_text = VALUES(question_text), usage_guide = VALUES(usage_guide), status = VALUES(status),
+  metrics_json = VALUES(metrics_json), sort_order = VALUES(sort_order), snapshot_date = VALUES(snapshot_date);
+
+SET @ltv_region_zhebei = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-region-zhebei');
+SET @ltv_region_zhedong = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-region-zhedong');
+SET @ltv_region_zhenan = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-region-zhenan');
+
+INSERT INTO analytics_ltv_nodes (
+  tenant_id, parent_id, node_type, node_code, name, summary,
+  question_text, usage_guide, status, metrics_json, sort_order, snapshot_date
+)
+VALUES
+  (@tenant_id,@ltv_region_zhebei,'store','ltv-store-hz-xh','杭州西湖店','钻石会员贡献突出，是浙北区域最适合先验证 LTV 深耕策略的门店。','最终呈现门店会员价值、订单表现、贡献评分和可运营人群。','店长用它选择要经营的人群包，而不是只看销售额排名。','active',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','模型会员','value','1 人','note','钻石卡会员','tone','blue'),JSON_OBJECT('label','当前 LTV','value','¥28,640','note','区域最高','tone','green'),JSON_OBJECT('label','累计订单','value','32 单','note','高频复购','tone','orange'),JSON_OBJECT('label','价值评分','value','96 分','note','重要保持','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','门店负责人','value','李雯'),JSON_OBJECT('label','建议方向','value','高价值深耕'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_region_zhedong,'store','ltv-store-nb-yz','宁波鄞州店','金卡会员价值稳定，下一步重点是推动等级升级和品类扩展。','最终呈现门店成长型会员的价值和升级机会。','店长用它选择成长型人群，并匹配升级权益策略。','active',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','模型会员','value','1 人','note','金卡会员','tone','blue'),JSON_OBJECT('label','当前 LTV','value','¥16,730','note','成长空间明确','tone','green'),JSON_OBJECT('label','累计订单','value','19 单','note','复购稳定','tone','orange'),JSON_OBJECT('label','价值评分','value','86 分','note','重要发展','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','门店负责人','value','陈策'),JSON_OBJECT('label','建议方向','value','等级升级'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_region_zhenan,'store','ltv-store-wz-lc','温州鹿城店','银卡会员消费频次尚可，但客单和品类宽度仍有明显提升空间。','最终呈现门店低于区域均值的价值缺口及可提升会员。','店长用它确定需要干预的会员人群和提升目标。','attention',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','模型会员','value','1 人','note','银卡会员','tone','blue'),JSON_OBJECT('label','当前 LTV','value','¥5,210','note','低于区域均值','tone','orange'),JSON_OBJECT('label','累计订单','value','8 单','note','频次尚可','tone','green'),JSON_OBJECT('label','价值评分','value','72 分','note','一般保持','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','门店负责人','value','周静'),JSON_OBJECT('label','建议方向','value','客单提升'))),10,'2026-06-25')
+ON DUPLICATE KEY UPDATE
+  parent_id = VALUES(parent_id), name = VALUES(name), summary = VALUES(summary), question_text = VALUES(question_text),
+  usage_guide = VALUES(usage_guide), status = VALUES(status), metrics_json = VALUES(metrics_json),
+  sort_order = VALUES(sort_order), snapshot_date = VALUES(snapshot_date);
+
+SET @ltv_store_hz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-store-hz-xh');
+SET @ltv_store_nb = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-store-nb-yz');
+SET @ltv_store_wz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id = @tenant_id AND node_code = 'ltv-store-wz-lc');
+
+INSERT INTO analytics_ltv_nodes (tenant_id,parent_id,node_type,node_code,name,summary,question_text,usage_guide,status,metrics_json,sort_order,snapshot_date)
+VALUES
+  (@tenant_id,@ltv_store_hz,'segment','ltv-segment-hz-vip','高价值高频会员','高价值且复购稳定，适合用稀缺权益提升长期黏性。','最终呈现人群规模、平均 LTV、偏好和价值风险。','运营人员据此选择策略，不再对所有会员发同一张券。','active',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','人群规模','value','1 人','note','林晓然','tone','blue'),JSON_OBJECT('label','平均 LTV','value','¥28,640','note','门店最高','tone','green'),JSON_OBJECT('label','核心偏好','value','新品体验','note','高频购买乳品','tone','orange'),JSON_OBJECT('label','流失风险','value','低','note','近 7 天活跃','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','筛选口径','value','评分 ≥ 90 且订单 ≥ 20'),JSON_OBJECT('label','经营目标','value','提升品类宽度与黏性'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_store_nb,'segment','ltv-segment-nb-growth','成长型金卡会员','消费和活跃均稳定，具备升级白金卡的明确潜力。','最终呈现成长型会员的升级概率和价值空间。','运营人员据此配置成长任务和升级权益。','active',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','人群规模','value','1 人','note','周子墨','tone','blue'),JSON_OBJECT('label','平均 LTV','value','¥16,730','note','高于公司均值','tone','green'),JSON_OBJECT('label','升级概率','value','68%','note','未来 60 天','tone','orange'),JSON_OBJECT('label','价值空间','value','+¥1,590','note','策略预测','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','筛选口径','value','金卡且近 90 天订单 ≥ 10'),JSON_OBJECT('label','经营目标','value','升级白金卡'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_store_wz,'segment','ltv-segment-wz-potential','待提升银卡会员','有稳定复购基础，但客单和连带购买不足。','最终呈现可提升会员的价值缺口、品类偏好和转化机会。','运营人员据此选择低成本、高相关度的组合策略。','attention',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','人群规模','value','1 人','note','陈安宁','tone','blue'),JSON_OBJECT('label','平均 LTV','value','¥5,210','note','低于门店目标','tone','orange'),JSON_OBJECT('label','提升空间','value','+18%','note','模型预测','tone','green'),JSON_OBJECT('label','核心缺口','value','客单偏低','note','品类较单一','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','筛选口径','value','银卡且订单 ≥ 5'),JSON_OBJECT('label','经营目标','value','提升客单与连带率'))),10,'2026-06-25')
+ON DUPLICATE KEY UPDATE parent_id=VALUES(parent_id),name=VALUES(name),summary=VALUES(summary),question_text=VALUES(question_text),usage_guide=VALUES(usage_guide),status=VALUES(status),metrics_json=VALUES(metrics_json),sort_order=VALUES(sort_order),snapshot_date=VALUES(snapshot_date);
+
+SET @ltv_segment_hz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-segment-hz-vip');
+SET @ltv_segment_nb = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-segment-nb-growth');
+SET @ltv_segment_wz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-segment-wz-potential');
+
+INSERT INTO analytics_ltv_nodes (tenant_id,parent_id,node_type,node_code,name,summary,question_text,usage_guide,status,metrics_json,sort_order,snapshot_date)
+VALUES
+  (@tenant_id,@ltv_segment_hz,'strategy','ltv-strategy-hz-vip','新品优先体验 + 专属顾问','用稀缺新品体验替代通用折扣，预计 LTV 提升 12%。','最终呈现推荐策略、预计提升、成本和适用渠道。','运营负责人确认策略后，一键转成门店执行任务。','recommended',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','预计 LTV','value','¥32,077','note','提升 12%','tone','green'),JSON_OBJECT('label','策略成本','value','¥120/人','note','含体验权益','tone','orange'),JSON_OBJECT('label','推荐渠道','value','企微 + 到店','note','顾问式触达','tone','blue'),JSON_OBJECT('label','置信度','value','87%','note','模型推荐','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','策略内容','value','新品试吃名额、专属顾问、7 日回访'),JSON_OBJECT('label','频控','value','7 天内最多 2 次触达'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_segment_nb,'strategy','ltv-strategy-nb-growth','成长加速包 + 双倍成长值','以等级成长激励推动金卡会员升级，预计 LTV 提升 9.5%。','最终呈现升级策略和预计价值增量。','区域运营确认成本后，下发门店执行升级任务。','recommended',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','预计 LTV','value','¥18,319','note','提升 9.5%','tone','green'),JSON_OBJECT('label','策略成本','value','¥80/人','note','成长权益','tone','orange'),JSON_OBJECT('label','推荐渠道','value','小程序 + 企微','note','任务式触达','tone','blue'),JSON_OBJECT('label','置信度','value','82%','note','模型推荐','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','策略内容','value','双倍成长值、升级礼包、到店提醒'),JSON_OBJECT('label','观察周期','value','30 天'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_segment_wz,'strategy','ltv-strategy-wz-basket','早餐组合券 + 品类推荐','用高关联组合提升客单和连带率，预计 LTV 提升 18%。','最终呈现低成本的价值提升策略和预期结果。','门店负责人确认目标后，转成可追踪的 14 天任务。','recommended',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','预计 LTV','value','¥6,148','note','提升 18%','tone','green'),JSON_OBJECT('label','策略成本','value','¥50/人','note','组合权益','tone','orange'),JSON_OBJECT('label','推荐渠道','value','企微 + 收银台','note','场景化触达','tone','blue'),JSON_OBJECT('label','置信度','value','79%','note','模型推荐','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','策略内容','value','早餐组合券、关联品类推荐、二次到店提醒'),JSON_OBJECT('label','观察周期','value','14 天'))),10,'2026-06-25')
+ON DUPLICATE KEY UPDATE parent_id=VALUES(parent_id),name=VALUES(name),summary=VALUES(summary),question_text=VALUES(question_text),usage_guide=VALUES(usage_guide),status=VALUES(status),metrics_json=VALUES(metrics_json),sort_order=VALUES(sort_order),snapshot_date=VALUES(snapshot_date);
+
+SET @ltv_strategy_hz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-strategy-hz-vip');
+SET @ltv_strategy_nb = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-strategy-nb-growth');
+SET @ltv_strategy_wz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-strategy-wz-basket');
+
+INSERT INTO analytics_ltv_nodes (tenant_id,parent_id,node_type,node_code,name,summary,question_text,usage_guide,status,metrics_json,sort_order,snapshot_date)
+VALUES
+  (@tenant_id,@ltv_strategy_hz,'task','ltv-task-hz-care','西湖店钻石会员 7 日关怀','任务已下发门店，当前进入顾问跟进和到店体验阶段。','最终呈现负责人、进度、触达渠道和关键节点。','店长按任务清单执行，区域负责人只看进度和异常。','running',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','任务进度','value','72%','note','执行中','tone','green'),JSON_OBJECT('label','负责人','value','李雯','note','杭州西湖店','tone','blue'),JSON_OBJECT('label','已触达','value','1/1 人','note','企微已送达','tone','orange'),JSON_OBJECT('label','截止时间','value','06-30','note','剩余 5 天','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','节点 1','value','企微邀请已完成'),JSON_OBJECT('label','节点 2','value','新品体验待核销'),JSON_OBJECT('label','节点 3','value','7 日回访待执行'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_strategy_nb,'task','ltv-task-nb-upgrade','鄞州店金卡升级 30 天任务','升级任务已启动，成长值权益已到账。','最终呈现升级任务的执行状态和会员响应。','门店根据节点推进，系统持续记录升级前后的价值变化。','running',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','任务进度','value','64%','note','执行中','tone','green'),JSON_OBJECT('label','负责人','value','陈策','note','宁波鄞州店','tone','blue'),JSON_OBJECT('label','权益领取','value','1/1 人','note','已领取','tone','orange'),JSON_OBJECT('label','截止时间','value','07-25','note','剩余 30 天','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','节点 1','value','成长礼包已发放'),JSON_OBJECT('label','节点 2','value','双倍成长值生效'),JSON_OBJECT('label','节点 3','value','等级复盘待执行'))),10,'2026-06-25'),
+  (@tenant_id,@ltv_strategy_wz,'task','ltv-task-wz-basket','鹿城店客单提升 14 天任务','组合券已触达，等待到店核销和二次购买。','最终呈现门店任务的进度、转化节点和风险。','店长处理未核销节点，区域负责人关注任务是否产生价值提升。','running',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','任务进度','value','58%','note','执行中','tone','green'),JSON_OBJECT('label','负责人','value','周静','note','温州鹿城店','tone','blue'),JSON_OBJECT('label','券已送达','value','1/1 人','note','待核销','tone','orange'),JSON_OBJECT('label','截止时间','value','07-09','note','剩余 14 天','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','节点 1','value','组合券已发放'),JSON_OBJECT('label','节点 2','value','首次到店待完成'),JSON_OBJECT('label','节点 3','value','复购观察待执行'))),10,'2026-06-25')
+ON DUPLICATE KEY UPDATE parent_id=VALUES(parent_id),name=VALUES(name),summary=VALUES(summary),question_text=VALUES(question_text),usage_guide=VALUES(usage_guide),status=VALUES(status),metrics_json=VALUES(metrics_json),sort_order=VALUES(sort_order),snapshot_date=VALUES(snapshot_date);
+
+SET @ltv_task_hz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-task-hz-care');
+SET @ltv_task_nb = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-task-nb-upgrade');
+SET @ltv_task_wz = (SELECT id FROM analytics_ltv_nodes WHERE tenant_id=@tenant_id AND node_code='ltv-task-wz-basket');
+
+INSERT INTO analytics_ltv_nodes (tenant_id,parent_id,node_type,node_code,name,summary,question_text,usage_guide,status,metrics_json,sort_order,snapshot_date)
+VALUES
+  (@tenant_id,@ltv_task_hz,'review','ltv-review-hz-care','西湖店高价值深耕复盘','实际 LTV 提升 7.8%，方向有效但体验核销仍需继续推进。','最终呈现目标与实际差异、价值提升和下一轮建议。','区域负责人据此决定继续、调整或停止策略，并沉淀为可复用方案。','completed',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','实际 LTV','value','¥30,880','note','较策略前 +7.8%','tone','green'),JSON_OBJECT('label','目标达成','value','65%','note','目标提升 12%','tone','orange'),JSON_OBJECT('label','复购率','value','100%','note','观察期内已复购','tone','blue'),JSON_OBJECT('label','策略结论','value','继续优化','note','补强到店核销','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','有效动作','value','专属顾问触达'),JSON_OBJECT('label','主要缺口','value','新品体验尚未核销'),JSON_OBJECT('label','下一轮','value','保留顾问，缩短体验预约链路')),'trend',JSON_ARRAY(JSON_OBJECT('period','策略前','ltv',28640,'target',28640),JSON_OBJECT('period','第 7 天','ltv',29820,'target',30350),JSON_OBJECT('period','第 14 天','ltv',30880,'target',32077)),'verdict','策略方向有效，建议继续执行并优化到店体验预约。'),10,'2026-06-25'),
+  (@tenant_id,@ltv_task_nb,'review','ltv-review-nb-upgrade','鄞州店成长升级复盘','实际 LTV 提升 7.1%，会员成长值和复购均有改善。','最终呈现升级策略的实际价值增量和等级进展。','区域运营据此判断成长权益是否值得扩大到更多金卡会员。','completed',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','实际 LTV','value','¥17,920','note','较策略前 +7.1%','tone','green'),JSON_OBJECT('label','目标达成','value','75%','note','目标提升 9.5%','tone','orange'),JSON_OBJECT('label','成长进度','value','82%','note','接近白金卡','tone','blue'),JSON_OBJECT('label','策略结论','value','建议扩量','note','复制到同类门店','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','有效动作','value','双倍成长值'),JSON_OBJECT('label','主要缺口','value','升级礼包使用率一般'),JSON_OBJECT('label','下一轮','value','强化等级差异权益')),'trend',JSON_ARRAY(JSON_OBJECT('period','策略前','ltv',16730,'target',16730),JSON_OBJECT('period','第 15 天','ltv',17360,'target',17520),JSON_OBJECT('period','第 30 天','ltv',17920,'target',18319)),'verdict','成长策略有效，建议复制到高潜金卡会员。'),10,'2026-06-25'),
+  (@tenant_id,@ltv_task_wz,'review','ltv-review-wz-basket','鹿城店客单提升复盘','实际 LTV 提升 14.8%，组合购买和二次到店均有改善。','最终呈现客单提升策略的投入产出和可复制性。','门店与区域负责人据此决定扩大组合券还是调整品类搭配。','completed',JSON_OBJECT('kpis',JSON_ARRAY(JSON_OBJECT('label','实际 LTV','value','¥5,980','note','较策略前 +14.8%','tone','green'),JSON_OBJECT('label','目标达成','value','82%','note','目标提升 18%','tone','orange'),JSON_OBJECT('label','连带率','value','2.3 件','note','策略前 1.5 件','tone','blue'),JSON_OBJECT('label','策略结论','value','建议扩量','note','优化券门槛','tone','purple')),'details',JSON_ARRAY(JSON_OBJECT('label','有效动作','value','早餐组合券'),JSON_OBJECT('label','主要缺口','value','券门槛略高'),JSON_OBJECT('label','下一轮','value','降低门槛并增加烘焙搭配')),'trend',JSON_ARRAY(JSON_OBJECT('period','策略前','ltv',5210,'target',5210),JSON_OBJECT('period','第 7 天','ltv',5570,'target',5680),JSON_OBJECT('period','第 14 天','ltv',5980,'target',6148)),'verdict','组合策略有效，建议降低使用门槛后扩大到同类银卡会员。'),10,'2026-06-25')
+ON DUPLICATE KEY UPDATE parent_id=VALUES(parent_id),name=VALUES(name),summary=VALUES(summary),question_text=VALUES(question_text),usage_guide=VALUES(usage_guide),status=VALUES(status),metrics_json=VALUES(metrics_json),sort_order=VALUES(sort_order),snapshot_date=VALUES(snapshot_date);
+
 COMMIT;

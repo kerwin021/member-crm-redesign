@@ -1049,3 +1049,27 @@ CREATE TABLE IF NOT EXISTS dev_api_call_logs (
   CONSTRAINT fk_dev_api_call_logs_app FOREIGN KEY (application_id) REFERENCES dev_applications (id) ON DELETE SET NULL,
   CONSTRAINT fk_dev_api_call_logs_doc FOREIGN KEY (api_doc_id) REFERENCES dev_api_docs (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS analytics_ltv_nodes (
+  id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  tenant_id BIGINT UNSIGNED NOT NULL,
+  parent_id BIGINT UNSIGNED NULL,
+  node_type VARCHAR(32) NOT NULL,
+  node_code VARCHAR(120) NOT NULL,
+  name VARCHAR(180) NOT NULL,
+  summary TEXT NOT NULL,
+  question_text TEXT NOT NULL,
+  usage_guide TEXT NOT NULL,
+  status VARCHAR(24) NOT NULL DEFAULT 'active',
+  metrics_json JSON NOT NULL,
+  sort_order INT NOT NULL DEFAULT 0,
+  snapshot_date DATE NOT NULL,
+  created_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3),
+  updated_at DATETIME(3) NOT NULL DEFAULT CURRENT_TIMESTAMP(3) ON UPDATE CURRENT_TIMESTAMP(3),
+  PRIMARY KEY (id),
+  UNIQUE KEY uk_analytics_ltv_nodes_tenant_code (tenant_id, node_code),
+  KEY idx_analytics_ltv_nodes_parent (tenant_id, parent_id, sort_order),
+  KEY idx_analytics_ltv_nodes_type (tenant_id, node_type, snapshot_date),
+  CONSTRAINT fk_analytics_ltv_nodes_tenant FOREIGN KEY (tenant_id) REFERENCES app_tenants (id) ON DELETE CASCADE,
+  CONSTRAINT fk_analytics_ltv_nodes_parent FOREIGN KEY (parent_id) REFERENCES analytics_ltv_nodes (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

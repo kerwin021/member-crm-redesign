@@ -1,12 +1,13 @@
 {
   "name": "member-crm-redesign",
-  "version": "0.0.0",
+  "version": "1.0.0",
   "private": true,
   "type": "module",
   "scripts": {
     "api": "python3 server/api.py",
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build",
+    "build": "node scripts/build-sites.mjs",
+    "start": "vite preview --host 127.0.0.1",
     "preview": "vite preview --host 127.0.0.1"
   },
   "dependencies": {

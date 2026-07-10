@@ -6,6 +6,7 @@ import {
   IconBrain,
   IconBuildingStore,
   IconChartBar,
+  IconChartDonut,
   IconClipboardData,
   IconCode,
   IconDatabaseExport,
@@ -75,6 +76,7 @@ export const DOMAIN_NAVIGATION = {
       {
         label: "用户洞察",
         items: [
+          item("ltv-model", "单客模型 / LTV", IconChartDonut, "从公司逐级下钻到区域、门店、人群、策略、任务和复盘", "开始分析", []),
           item("fans", "粉丝洞察", IconUsersGroup, "", "", [], true),
           item("member-insight", "会员洞察", IconBrain, "", "", [], true),
           item("sales-insight", "销售洞察", IconChartBar, "", "", [], true),
@@ -233,6 +235,7 @@ const existingMeta = {
   fans: { title: "粉丝洞察", group: "用户洞察", domain: "用户数据" },
   "member-insight": { title: "会员洞察", group: "用户洞察", domain: "用户数据" },
   "sales-insight": { title: "销售洞察", group: "用户洞察", domain: "用户数据" },
+  "ltv-model": { title: "单客模型 / LTV", group: "用户洞察", domain: "用户数据" },
 };
 
 export const PAGE_META = { ...existingMeta };

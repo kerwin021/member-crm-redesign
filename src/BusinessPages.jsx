@@ -70,6 +70,7 @@ import {
   YAxis,
 } from "recharts";
 import { FEATURE_PAGE_CONFIG } from "./navigationConfig.jsx";
+import { LtvModelPage } from "./LtvModelPage.jsx";
 
 const highValueMembers = [
   { name: "林晓然", id: "M202606130021", level: "钻石卡", value: "¥28,640", orders: 32, last: "2 小时前", store: "杭州西湖店", score: 96, trend: "+12.8%" },
@@ -937,6 +938,7 @@ export function BusinessPageRouter({ activePage, onToast, onAction, data }) {
     case "fans": return <DatabaseFansInsightPage {...props} />;
     case "member-insight": return <DatabaseMemberInsightPage {...props} />;
     case "sales-insight": return <DatabaseSalesInsightPage {...props} />;
+    case "ltv-model": return <LtvModelPage {...props} />;
     default: return null;
   }
 }
