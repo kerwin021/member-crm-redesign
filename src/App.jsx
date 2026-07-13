@@ -63,8 +63,12 @@ function formatNumber(value) {
 
 function Logo({ compact = false }) {
   return (
-    <div className={`brand ${compact ? "brand--compact" : ""}`} aria-label="IS 微智">
-      <span className="brand__is">IS</span>
+    <div className={`brand ${compact ? "brand--compact" : ""}`} aria-label="微智">
+      <span className="brand__mark" aria-hidden="true">
+        <span className="brand__mark-glyph">微</span>
+        <span className="brand__mark-dot brand__mark-dot--top" />
+        <span className="brand__mark-dot brand__mark-dot--bottom" />
+      </span>
       {!compact && <span className="brand__cn">微智</span>}
     </div>
   );
