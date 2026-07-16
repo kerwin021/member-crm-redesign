@@ -32,11 +32,11 @@ const levels = [
 ];
 
 const members = [
-  { id: "M202606150021", name: "林晓然", phone: "138****3026", store: "杭州西湖店", level: "钻石卡", source: "小程序商城", date: "2026-06-15", status: "活跃" },
-  { id: "M202606140118", name: "周子墨", phone: "186****7913", store: "宁波鄞州店", level: "金卡", source: "门店扫码", date: "2026-06-14", status: "活跃" },
-  { id: "M202606130086", name: "陈安宁", phone: "157****6088", store: "温州鹿城店", level: "银卡", source: "公众号", date: "2026-06-13", status: "待唤醒" },
-  { id: "M202606120035", name: "吴嘉言", phone: "139****4251", store: "杭州滨江店", level: "普通卡", source: "员工邀请", date: "2026-06-12", status: "活跃" },
-  { id: "M202606110242", name: "沈清禾", phone: "177****1638", store: "绍兴越城店", level: "白金卡", source: "小程序商城", date: "2026-06-11", status: "冻结" },
+  { id: "M202606150021", name: "林晓然", phone: "138****3026", store: "杭州西湖店", level: "钻石卡", source: "小程序商城", date: "2026-06-15", status: "活跃", detail: { totalSpend: "¥28,640", orders: "32 单", points: "18,620", lastPurchase: "2 小时前", tags: ["高价值会员", "高复购", "新品偏好", "小程序活跃"], events: [{ title: "完成新品组合订单", note: "今天 14:28 · ¥186.80" }, { title: "升级为钻石卡", note: "今天 09:32 · 等级引擎" }, { title: "领取夏日新品券", note: "昨天 18:06 · 小程序商城" }] } },
+  { id: "M202606140118", name: "周子墨", phone: "186****7913", store: "宁波鄞州店", level: "金卡", source: "门店扫码", date: "2026-06-14", status: "活跃", detail: { totalSpend: "¥16,730", orders: "19 单", points: "12,480", lastPurchase: "昨天", tags: ["成长型会员", "门店高频", "乳品偏好"], events: [{ title: "门店订单已完成", note: "昨天 13:06 · ¥98.50" }, { title: "领取成长加速权益", note: "06-14 16:20 · 会员中心" }, { title: "会员价值评分更新", note: "06-14 09:30 · 系统自动" }] } },
+  { id: "M202606130086", name: "陈安宁", phone: "157****6088", store: "温州鹿城店", level: "银卡", source: "公众号", date: "2026-06-13", status: "待唤醒", detail: { totalSpend: "¥5,210", orders: "8 单", points: "3,860", lastPurchase: "38 天前", tags: ["待唤醒会员", "银卡会员", "酸奶偏好"], events: [{ title: "进入待唤醒人群", note: "今天 09:12 · 标签引擎" }, { title: "唤醒任务触达", note: "昨天 15:30 · 企业微信" }, { title: "最近一次订单完成", note: "38 天前 · 温州鹿城店" }] } },
+  { id: "M202606120035", name: "吴嘉言", phone: "139****4251", store: "杭州滨江店", level: "普通卡", source: "员工邀请", date: "2026-06-12", status: "活跃", detail: { totalSpend: "¥1,286", orders: "6 单", points: "1,540", lastPurchase: "5 天前", tags: ["新会员", "员工邀请", "门店自提"], events: [{ title: "完成首次复购", note: "5 天前 · ¥72.60" }, { title: "归属门店已更新", note: "06-12 09:46 · 门店店长" }, { title: "完成会员注册", note: "06-12 08:20 · 员工邀请" }] } },
+  { id: "M202606110242", name: "沈清禾", phone: "177****1638", store: "绍兴越城店", level: "白金卡", source: "小程序商城", date: "2026-06-11", status: "冻结", detail: { totalSpend: "¥19,520", orders: "21 单", points: "9,680", lastPurchase: "3 天前", tags: ["白金卡", "高价值会员", "账户待核验"], events: [{ title: "账户触发临时冻结", note: "昨天 18:21 · 风控系统" }, { title: "订单进入退款审核", note: "3 天前 · ¥328.90" }, { title: "会员价值评分更新", note: "06-12 09:30 · 系统自动" }] } },
 ];
 
 const highValueMembers = [

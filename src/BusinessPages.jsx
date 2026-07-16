@@ -261,7 +261,7 @@ function Toggle({ checked, onChange, label }) {
   return <button className={`toggle ${checked ? "is-on" : ""}`} onClick={onChange} aria-label={label} aria-pressed={checked}><i /></button>;
 }
 
-function Drawer({ open, title, subtitle, onClose, children, footer }) {
+export function Drawer({ open, title, subtitle, onClose, children, footer }) {
   if (!open) return null;
   return createPortal((
     <div className="drawer-shade" onMouseDown={onClose}>
