@@ -132,6 +132,157 @@ const domainOverviews = {
   "domain-config": { stats: [["配置项", "210", "今日变更 6 项"], ["组织与权限", "346", "待审批 9 项"]], tasks: [["会员等级日终计算", "每日 02:00", "正常", "100%"], ["短信模板审核同步", "每 30 分钟", "异常", "62.0%"]] },
 };
 
+const ltvStages = [
+  { id: "company", label: "公司", prompt: "全局价值盘点" },
+  { id: "region", label: "区域", prompt: "定位增长区域" },
+  { id: "store", label: "门店", prompt: "识别重点门店" },
+  { id: "segment", label: "人群包", prompt: "锁定运营对象" },
+  { id: "strategy", label: "策略", prompt: "选择最优动作" },
+  { id: "task", label: "任务", prompt: "落到执行责任" },
+  { id: "review", label: "复盘", prompt: "验证价值提升" },
+];
+
+const ltvNode = (id, parentId, type, name, summary, questionText, usageGuide, status, kpis, details = [], extra = {}) => ({
+  id,
+  parentId,
+  type,
+  code: `demo-${id}`,
+  name,
+  summary,
+  questionText,
+  usageGuide,
+  status: { active: "正常", attention: "需关注", recommended: "推荐", running: "执行中", completed: "已完成" }[status] || status,
+  statusCode: status,
+  metrics: { kpis, details, ...extra },
+});
+
+const ltvNodes = [
+  ltvNode("company-ym", null, "company", "一鸣食品总部", "全公司单客价值口径已经统一，当前机会集中在浙北深耕、浙东升级和浙南客单提升。", "呈现公司会员资产、平均 LTV、价值总量和优先经营方向。", "经营负责人先看全局健康度，再下钻区域分配运营资源。", "active", [
+    { label: "模型会员", value: "128,670 人", note: "当前有效会员", tone: "blue" },
+    { label: "平均 LTV", value: "¥14,532", note: "未来 12 个月预测", tone: "green" },
+    { label: "会员价值总量", value: "¥18.70 亿", note: "当前模型快照", tone: "orange" },
+    { label: "重点区域", value: "3 个", note: "均可继续下钻", tone: "purple" },
+  ], [
+    { label: "模型口径", value: "未来 12 个月预测 LTV" },
+    { label: "更新时间", value: "2026-06-25 18:00" },
+    { label: "建议动作", value: "比较区域价值与提升空间" },
+  ]),
+
+  ltvNode("region-north", "company-ym", "region", "浙北区域", "价值总量最高、高价值会员集中，适合优先开展深度经营。", "呈现区域价值规模、平均 LTV、重点门店和增长空间。", "区域负责人用它决定优先投入哪家门店。", "active", [
+    { label: "区域会员", value: "52,840 人", note: "占公司 41.1%", tone: "blue" },
+    { label: "平均 LTV", value: "¥16,613", note: "高于公司均值", tone: "green" },
+    { label: "价值总量", value: "¥8.78 亿", note: "公司占比 47.0%", tone: "orange" },
+    { label: "优先门店", value: "杭州西湖店", note: "价值评分最高", tone: "purple" },
+  ], [{ label: "机会判断", value: "高价值深耕" }, { label: "建议预算", value: "公司预算的 45%" }]),
+  ltvNode("region-east", "company-ym", "region", "浙东区域", "单客价值稳定，成长型会员升级空间明确。", "呈现区域单客价值与会员成长潜力。", "区域负责人据此决定升级资源和权益投入。", "active", [
+    { label: "区域会员", value: "38,620 人", note: "占公司 30.0%", tone: "blue" },
+    { label: "平均 LTV", value: "¥15,730", note: "高于公司均值", tone: "green" },
+    { label: "价值总量", value: "¥6.08 亿", note: "公司占比 32.5%", tone: "orange" },
+    { label: "优先门店", value: "宁波鄞州店", note: "成长空间明确", tone: "purple" },
+  ], [{ label: "机会判断", value: "等级升级" }, { label: "建议预算", value: "公司预算的 25%" }]),
+  ltvNode("region-south", "company-ym", "region", "浙南区域", "单客价值低于均值，优先改善客单与品类连带。", "呈现区域价值短板与可提升空间。", "区域负责人据此选择门店和干预方向。", "attention", [
+    { label: "区域会员", value: "37,210 人", note: "占公司 28.9%", tone: "blue" },
+    { label: "平均 LTV", value: "¥10,310", note: "低于公司均值", tone: "orange" },
+    { label: "价值总量", value: "¥3.84 亿", note: "公司占比 20.5%", tone: "green" },
+    { label: "优先门店", value: "温州鹿城店", note: "提升空间最大", tone: "purple" },
+  ], [{ label: "机会判断", value: "客单与连带提升" }, { label: "建议预算", value: "公司预算的 30%" }]),
+
+  ltvNode("store-hz", "region-north", "store", "杭州西湖店", "钻石会员贡献突出，是最适合先验证高价值深耕策略的门店。", "呈现门店会员价值、订单表现和可运营人群。", "店长据此选择经营人群，而不只看销售额排名。", "active", [
+    { label: "有效会员", value: "8,642 人", note: "钻石卡占比 9.8%", tone: "blue" },
+    { label: "平均 LTV", value: "¥18,640", note: "区域最高", tone: "green" },
+    { label: "月均订单", value: "3.8 单", note: "复购稳定", tone: "orange" },
+    { label: "价值评分", value: "96 分", note: "重要保持", tone: "purple" },
+  ], [{ label: "门店负责人", value: "李雯" }, { label: "建议方向", value: "高价值深耕" }]),
+  ltvNode("store-nb", "region-east", "store", "宁波鄞州店", "金卡会员表现稳定，下一步重点是推动等级升级。", "呈现门店成长型会员的价值与升级机会。", "店长据此选择成长型人群并匹配升级权益。", "active", [
+    { label: "有效会员", value: "7,316 人", note: "金卡占比 18.6%", tone: "blue" },
+    { label: "平均 LTV", value: "¥16,730", note: "成长空间明确", tone: "green" },
+    { label: "月均订单", value: "2.9 单", note: "复购稳定", tone: "orange" },
+    { label: "价值评分", value: "86 分", note: "重要发展", tone: "purple" },
+  ], [{ label: "门店负责人", value: "陈策" }, { label: "建议方向", value: "等级升级" }]),
+  ltvNode("store-wz", "region-south", "store", "温州鹿城店", "复购基础尚可，但客单和品类宽度仍有明显提升空间。", "呈现门店价值缺口与可提升会员。", "店长据此确定要干预的人群和提升目标。", "attention", [
+    { label: "有效会员", value: "6,924 人", note: "银卡占比 27.4%", tone: "blue" },
+    { label: "平均 LTV", value: "¥9,210", note: "低于区域目标", tone: "orange" },
+    { label: "月均订单", value: "2.1 单", note: "频次尚可", tone: "green" },
+    { label: "价值评分", value: "72 分", note: "一般保持", tone: "purple" },
+  ], [{ label: "门店负责人", value: "周静" }, { label: "建议方向", value: "客单提升" }]),
+
+  ltvNode("segment-hz", "store-hz", "segment", "高价值高频会员", "价值高且复购稳定，适合用稀缺权益提升长期黏性。", "呈现人群规模、平均 LTV、偏好和流失风险。", "运营人员据此选择策略，避免对所有会员发同一种券。", "active", [
+    { label: "人群规模", value: "1,286 人", note: "评分 ≥ 90", tone: "blue" },
+    { label: "平均 LTV", value: "¥28,640", note: "门店最高", tone: "green" },
+    { label: "核心偏好", value: "新品体验", note: "乳品购买频繁", tone: "orange" },
+    { label: "流失风险", value: "低", note: "近 7 天活跃", tone: "purple" },
+  ], [{ label: "筛选口径", value: "评分 ≥ 90 且近 90 天订单 ≥ 8" }, { label: "经营目标", value: "提升品类宽度与黏性" }]),
+  ltvNode("segment-nb", "store-nb", "segment", "成长型金卡会员", "消费与活跃稳定，具备升级白金卡的明确潜力。", "呈现成长型会员升级概率和价值空间。", "运营人员据此配置成长任务与升级权益。", "active", [
+    { label: "人群规模", value: "936 人", note: "高潜金卡会员", tone: "blue" },
+    { label: "平均 LTV", value: "¥16,730", note: "高于公司均值", tone: "green" },
+    { label: "升级概率", value: "68%", note: "未来 60 天", tone: "orange" },
+    { label: "价值空间", value: "+¥1,590", note: "策略预测", tone: "purple" },
+  ], [{ label: "筛选口径", value: "金卡且近 90 天订单 ≥ 6" }, { label: "经营目标", value: "升级白金卡" }]),
+  ltvNode("segment-wz", "store-wz", "segment", "待提升银卡会员", "有稳定复购基础，但客单和连带购买不足。", "呈现价值缺口、品类偏好和转化机会。", "运营人员据此选择低成本、高相关度组合策略。", "attention", [
+    { label: "人群规模", value: "1,124 人", note: "有稳定复购", tone: "blue" },
+    { label: "平均 LTV", value: "¥9,210", note: "低于门店目标", tone: "orange" },
+    { label: "提升空间", value: "+18%", note: "模型预测", tone: "green" },
+    { label: "核心缺口", value: "客单偏低", note: "品类较单一", tone: "purple" },
+  ], [{ label: "筛选口径", value: "银卡且近 90 天订单 ≥ 3" }, { label: "经营目标", value: "提升客单与连带率" }]),
+
+  ltvNode("strategy-hz", "segment-hz", "strategy", "新品优先体验 + 专属顾问", "用稀缺新品体验替代通用折扣，预计 LTV 提升 12%。", "呈现推荐策略、预计提升、成本和适用渠道。", "运营负责人确认后可继续下钻为门店任务。", "recommended", [
+    { label: "预计 LTV", value: "¥32,077", note: "提升 12%", tone: "green" },
+    { label: "策略成本", value: "¥120/人", note: "含体验权益", tone: "orange" },
+    { label: "推荐渠道", value: "企微 + 到店", note: "顾问式触达", tone: "blue" },
+    { label: "置信度", value: "87%", note: "模型推荐", tone: "purple" },
+  ], [{ label: "策略内容", value: "新品试吃、专属顾问、7 日回访" }, { label: "频控", value: "7 天内最多 2 次触达" }]),
+  ltvNode("strategy-nb", "segment-nb", "strategy", "成长加速包 + 双倍成长值", "以成长激励推动金卡升级，预计 LTV 提升 9.5%。", "呈现升级策略和预计价值增量。", "区域运营确认成本后下发门店任务。", "recommended", [
+    { label: "预计 LTV", value: "¥18,319", note: "提升 9.5%", tone: "green" },
+    { label: "策略成本", value: "¥80/人", note: "成长权益", tone: "orange" },
+    { label: "推荐渠道", value: "小程序 + 企微", note: "任务式触达", tone: "blue" },
+    { label: "置信度", value: "82%", note: "模型推荐", tone: "purple" },
+  ], [{ label: "策略内容", value: "双倍成长值、升级礼包、到店提醒" }, { label: "观察周期", value: "30 天" }]),
+  ltvNode("strategy-wz", "segment-wz", "strategy", "早餐组合券 + 品类推荐", "用高关联组合提升客单和连带率，预计 LTV 提升 18%。", "呈现低成本价值提升策略与预期结果。", "门店负责人确认后转成可追踪的 14 天任务。", "recommended", [
+    { label: "预计 LTV", value: "¥10,868", note: "提升 18%", tone: "green" },
+    { label: "策略成本", value: "¥50/人", note: "组合权益", tone: "orange" },
+    { label: "推荐渠道", value: "企微 + 收银台", note: "场景化触达", tone: "blue" },
+    { label: "置信度", value: "79%", note: "模型推荐", tone: "purple" },
+  ], [{ label: "策略内容", value: "早餐组合券、关联品类推荐、二次到店提醒" }, { label: "观察周期", value: "14 天" }]),
+
+  ltvNode("task-hz", "strategy-hz", "task", "西湖店钻石会员 7 日关怀", "任务已下发门店，当前进入顾问跟进和到店体验阶段。", "呈现负责人、进度、触达渠道和关键节点。", "店长按任务执行，区域负责人关注进度与异常。", "running", [
+    { label: "任务进度", value: "72%", note: "执行中", tone: "green" },
+    { label: "负责人", value: "李雯", note: "杭州西湖店", tone: "blue" },
+    { label: "已触达", value: "1,286 人", note: "企微已送达", tone: "orange" },
+    { label: "截止时间", value: "06-30", note: "剩余 5 天", tone: "purple" },
+  ], [{ label: "节点 1", value: "企微邀请已完成" }, { label: "节点 2", value: "新品体验核销中" }, { label: "节点 3", value: "7 日回访待执行" }]),
+  ltvNode("task-nb", "strategy-nb", "task", "鄞州店金卡升级 30 天任务", "升级任务已启动，成长值权益已经到账。", "呈现升级任务的执行状态和会员响应。", "门店推进节点，系统记录升级前后的价值变化。", "running", [
+    { label: "任务进度", value: "64%", note: "执行中", tone: "green" },
+    { label: "负责人", value: "陈策", note: "宁波鄞州店", tone: "blue" },
+    { label: "权益领取", value: "78%", note: "高于预期", tone: "orange" },
+    { label: "截止时间", value: "07-25", note: "剩余 30 天", tone: "purple" },
+  ], [{ label: "节点 1", value: "成长礼包已发放" }, { label: "节点 2", value: "双倍成长值生效" }, { label: "节点 3", value: "等级复盘待执行" }]),
+  ltvNode("task-wz", "strategy-wz", "task", "鹿城店客单提升 14 天任务", "组合券已触达，等待到店核销和二次购买。", "呈现门店任务进度、转化节点和风险。", "店长处理未核销节点，区域负责人关注价值提升。", "running", [
+    { label: "任务进度", value: "58%", note: "执行中", tone: "green" },
+    { label: "负责人", value: "周静", note: "温州鹿城店", tone: "blue" },
+    { label: "券送达率", value: "96%", note: "待核销", tone: "orange" },
+    { label: "截止时间", value: "07-09", note: "剩余 14 天", tone: "purple" },
+  ], [{ label: "节点 1", value: "组合券已发放" }, { label: "节点 2", value: "首次到店进行中" }, { label: "节点 3", value: "复购观察待执行" }]),
+
+  ltvNode("review-hz", "task-hz", "review", "西湖店高价值深耕复盘", "实际 LTV 提升 7.8%，方向有效但体验核销仍需推进。", "呈现目标与实际差异、价值提升和下一轮建议。", "区域负责人据此决定继续、调整或停止策略。", "completed", [
+    { label: "实际 LTV", value: "¥30,880", note: "较策略前 +7.8%", tone: "green" },
+    { label: "目标达成", value: "65%", note: "目标提升 12%", tone: "orange" },
+    { label: "复购率", value: "82%", note: "观察期内已复购", tone: "blue" },
+    { label: "策略结论", value: "继续优化", note: "补强到店核销", tone: "purple" },
+  ], [{ label: "有效动作", value: "专属顾问触达" }, { label: "主要缺口", value: "新品体验核销不足" }, { label: "下一轮", value: "缩短体验预约链路" }], { trend: [{ period: "策略前", ltv: 28640, target: 28640 }, { period: "第 7 天", ltv: 29820, target: 30350 }, { period: "第 14 天", ltv: 30880, target: 32077 }], verdict: "策略方向有效，建议继续执行并优化到店体验预约。" }),
+  ltvNode("review-nb", "task-nb", "review", "鄞州店成长升级复盘", "实际 LTV 提升 7.1%，成长值和复购均有改善。", "呈现升级策略的价值增量与等级进展。", "区域运营据此判断是否扩大到更多金卡会员。", "completed", [
+    { label: "实际 LTV", value: "¥17,920", note: "较策略前 +7.1%", tone: "green" },
+    { label: "目标达成", value: "75%", note: "目标提升 9.5%", tone: "orange" },
+    { label: "成长进度", value: "82%", note: "接近白金卡", tone: "blue" },
+    { label: "策略结论", value: "建议扩量", note: "复制到同类门店", tone: "purple" },
+  ], [{ label: "有效动作", value: "双倍成长值" }, { label: "主要缺口", value: "升级礼包使用率一般" }, { label: "下一轮", value: "强化等级差异权益" }], { trend: [{ period: "策略前", ltv: 16730, target: 16730 }, { period: "第 15 天", ltv: 17360, target: 17520 }, { period: "第 30 天", ltv: 17920, target: 18319 }], verdict: "成长策略有效，建议复制到高潜金卡会员。" }),
+  ltvNode("review-wz", "task-wz", "review", "鹿城店客单提升复盘", "实际 LTV 提升 14.8%，组合购买和二次到店均有改善。", "呈现客单提升策略的投入产出和可复制性。", "门店与区域负责人据此决定扩大或调整品类搭配。", "completed", [
+    { label: "实际 LTV", value: "¥10,573", note: "较策略前 +14.8%", tone: "green" },
+    { label: "目标达成", value: "82%", note: "目标提升 18%", tone: "orange" },
+    { label: "连带率", value: "2.3 件", note: "策略前 1.5 件", tone: "blue" },
+    { label: "策略结论", value: "建议扩量", note: "优化券门槛", tone: "purple" },
+  ], [{ label: "有效动作", value: "早餐组合券" }, { label: "主要缺口", value: "券门槛略高" }, { label: "下一轮", value: "降低门槛并增加烘焙搭配" }], { trend: [{ period: "策略前", ltv: 9210, target: 9210 }, { period: "第 7 天", ltv: 9870, target: 10120 }, { period: "第 14 天", ltv: 10573, target: 10868 }], verdict: "组合策略有效，建议降低门槛后扩大到同类银卡会员。" }),
+];
+
 export const DEMO_DATA = {
   meta: { source: "sites-demo", tenant: { code: "demo", name: "微智演示租户", brandName: "微智" }, generatedAt: "2026-07-10T00:00:00" },
   dashboard: {
@@ -172,7 +323,7 @@ export const DEMO_DATA = {
   memberTrend: [{ month: "1月", active: 62, retention: 71, value: 58 }, { month: "2月", active: 64, retention: 73, value: 61 }, { month: "3月", active: 68, retention: 75, value: 64 }, { month: "4月", active: 65, retention: 74, value: 66 }, { month: "5月", active: 72, retention: 78, value: 69 }, { month: "6月", active: 76, retention: 81, value: 74 }],
   salesTrend: trends30.map((row, index) => ({ day: row.day, sales: 128 + index * 8, orders: 1860 + index * 90, avg: 68.8 + index })),
   insights,
-  ltvModel: { asOf: "2026-06-14", stages: [], nodes: [] },
+  ltvModel: { asOf: "2026-06-25", stages: ltvStages, nodes: ltvNodes },
   featurePages,
   domainOverviews,
 };
