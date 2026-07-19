@@ -279,6 +279,138 @@ function Pill({ children, tone = "blue" }) {
   return <span className={`business-pill is-${tone}`}>{children}</span>;
 }
 
+function renderClawInline(text) {
+  const parts = String(text || "").split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((part, index) => {
+    if (part.startsWith("**") && part.endsWith("**")) return <strong key={`${part}-${index}`}>{part.slice(2, -2)}</strong>;
+    return part;
+  });
+}
+
+function isMarkdownTableSeparator(line) {
+  return /^\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)+\|?$/.test(line.trim());
+}
+
+function isMarkdownTableRow(line) {
+  const trimmed = line.trim();
+  return trimmed.includes("|") && trimmed.replace(/^\|/, "").replace(/\|$/, "").split("|").length > 1;
+}
+
+function parseMarkdownTableRow(line) {
+  return line.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((cell) => cell.trim());
+}
+
+function isAnswerBlockStart(line, nextLine = "") {
+  const trimmed = line.trim();
+  return !trimmed || trimmed === "---" || /^#{1,4}\s+/.test(trimmed) || /^>\s?/.test(trimmed) || /^(\d+\.\s+|[-*]\s+)/.test(trimmed) || (isMarkdownTableRow(trimmed) && isMarkdownTableSeparator(nextLine));
+}
+
+function parseClawAnswer(text) {
+  const lines = String(text || "").split(/\r?\n/);
+  const blocks = [];
+  let index = 0;
+
+  while (index < lines.length) {
+    const line = lines[index];
+    const trimmed = line.trim();
+    const nextLine = lines[index + 1] || "";
+
+    if (!trimmed) {
+      index += 1;
+      continue;
+    }
+
+    if (trimmed === "---") {
+      blocks.push({ type: "divider" });
+      index += 1;
+      continue;
+    }
+
+    const heading = trimmed.match(/^(#{1,4})\s+(.*)$/);
+    if (heading) {
+      blocks.push({ type: "heading", level: heading[1].length, text: heading[2] });
+      index += 1;
+      continue;
+    }
+
+    if (isMarkdownTableRow(trimmed) && isMarkdownTableSeparator(nextLine)) {
+      const headers = parseMarkdownTableRow(trimmed);
+      const rows = [];
+      index += 2;
+      while (index < lines.length && isMarkdownTableRow(lines[index]) && !isMarkdownTableSeparator(lines[index])) {
+        rows.push(parseMarkdownTableRow(lines[index]));
+        index += 1;
+      }
+      blocks.push({ type: "table", headers, rows });
+      continue;
+    }
+
+    if (/^>\s?/.test(trimmed)) {
+      const quoteLines = [];
+      while (index < lines.length && /^>\s?/.test(lines[index].trim())) {
+        quoteLines.push(lines[index].trim().replace(/^>\s?/, ""));
+        index += 1;
+      }
+      blocks.push({ type: "quote", text: quoteLines.join("\n") });
+      continue;
+    }
+
+    if (/^\d+\.\s+/.test(trimmed) || /^[-*]\s+/.test(trimmed)) {
+      const ordered = /^\d+\.\s+/.test(trimmed);
+      const items = [];
+      const marker = ordered ? /^\d+\.\s+/ : /^[-*]\s+/;
+      while (index < lines.length && marker.test(lines[index].trim())) {
+        items.push(lines[index].trim().replace(marker, ""));
+        index += 1;
+      }
+      blocks.push({ type: ordered ? "ordered-list" : "unordered-list", items });
+      continue;
+    }
+
+    const paragraph = [trimmed];
+    index += 1;
+    while (index < lines.length && !isAnswerBlockStart(lines[index], lines[index + 1] || "")) {
+      paragraph.push(lines[index].trim());
+      index += 1;
+    }
+    blocks.push({ type: "paragraph", text: paragraph.join("\n") });
+  }
+
+  return blocks;
+}
+
+function ClawAnswerContent({ text }) {
+  const blocks = useMemo(() => parseClawAnswer(text), [text]);
+  return (
+    <div className="claw-markdown">
+      {blocks.map((block, index) => {
+        if (block.type === "divider") return <hr key={`divider-${index}`} />;
+        if (block.type === "heading") return block.level <= 2 ? <h3 key={`heading-${index}`}>{renderClawInline(block.text)}</h3> : <h4 key={`heading-${index}`}>{renderClawInline(block.text)}</h4>;
+        if (block.type === "quote") return <blockquote key={`quote-${index}`}>{renderClawInline(block.text)}</blockquote>;
+        if (block.type === "table") {
+          return (
+            <div className="claw-answer-table-wrap" key={`table-${index}`}>
+              <table className="claw-answer-table">
+                <thead><tr>{block.headers.map((header, cellIndex) => <th key={`${header}-${cellIndex}`}>{renderClawInline(header)}</th>)}</tr></thead>
+                <tbody>
+                  {block.rows.map((row, rowIndex) => (
+                    <tr key={`row-${rowIndex}`}>
+                      {block.headers.map((_, cellIndex) => <td key={`cell-${cellIndex}`}>{renderClawInline(row[cellIndex] || "")}</td>)}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          );
+        }
+        if (block.type === "ordered-list") return <ol key={`list-${index}`}>{block.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{renderClawInline(item)}</li>)}</ol>;
+        if (block.type === "unordered-list") return <ul key={`list-${index}`}>{block.items.map((item, itemIndex) => <li key={`${item}-${itemIndex}`}>{renderClawInline(item)}</li>)}</ul>;
+        return <p key={`paragraph-${index}`}>{renderClawInline(block.text)}</p>;
+      })}
+    </div>
+  );
+}
+
 function Toggle({ checked, onChange, label }) {
   return <button className={`toggle ${checked ? "is-on" : ""}`} onClick={onChange} aria-label={label} aria-pressed={checked}><i /></button>;
 }
@@ -398,6 +530,21 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
     setCompletedActions((current) => current.includes(title) ? current : [...current, title]);
     onToast(`${action}任务已创建`);
   };
+  const selectTool = ({ label, question }) => {
+    setActiveTool(label);
+    if (!prompt.trim() && question) setPrompt(question);
+    onToast(`已切换到${label}模式`);
+  };
+  const copyAnswer = async () => {
+    if (!answer || answerStatus === "loading") return;
+    try {
+      await navigator.clipboard.writeText(answer);
+      onToast("回答摘要已复制");
+    } catch {
+      onToast("当前浏览器不支持自动复制");
+    }
+  };
+  const timeLabel = answerStatus === "loading" ? "生成中" : answerMeta.generatedAt ? answerMeta.generatedAt.slice(11, 16) : "待提问";
   return (
     <section className="business-page claw-page">
       <PageHeader
@@ -438,27 +585,47 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
 
       {activePage === "claw-qa" && (
         <section className="panel claw-qa-panel">
-          <div className="claw-qa-top">
-            <div className="qa-welcome"><IconMessageCircle size={38}/><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>
-            <div className="claw-answer">
+          <div className="claw-qa-workspace">
+            <article className={`claw-answer is-${answerStatus}`}>
               <div className="claw-answer__head">
-                <strong>{lastQuestion ? `Claw 回答：${lastQuestion}` : "Claw 回答"}</strong>
+                <div>
+                  <span className="claw-answer__eyebrow">微智 Claw 输出</span>
+                  <strong className="claw-answer__title">{lastQuestion || "先提出一个会员经营问题"}</strong>
+                </div>
                 <div className="claw-answer__meta">
                   <span><IconSparkles size={14}/>{activeTool}</span>
                   <span><IconDatabaseExport size={14}/>{activeScope}</span>
-                  <span className={`is-${answerStatus}`}><IconClock size={14}/>{answerStatus === "loading" ? "生成中" : answerMeta.generatedAt ? answerMeta.generatedAt.slice(11, 16) : "待提问"}</span>
+                  <span className={`is-${answerStatus}`}><IconClock size={14}/>{timeLabel}</span>
                   <span>{answerMeta.model}</span>
                 </div>
               </div>
-              <p>{answer}</p>
+              <div className="claw-answer__body">
+                {answerStatus === "idle" && !lastQuestion ? (
+                  <div className="claw-answer-empty">
+                    <IconMessageCircle size={42}/>
+                    <h3>问我任何会员经营问题</h3>
+                    <p>选择分析范围和工具模式后输入问题，或点击下方推荐问题直接开始。</p>
+                    <button onClick={() => setPrompt("本月高价值会员有什么变化？")}>填入示例问题</button>
+                  </div>
+                ) : <ClawAnswerContent text={answer} />}
+              </div>
               <div className="claw-answer__steps">
                 {answerSteps.map((step) => <span key={step}><IconCheck size={14}/>{step}</span>)}
               </div>
               <div className="claw-answer__actions">
-                <button onClick={() => onToast("回答摘要已复制")}><IconClipboardData size={15}/>复制摘要</button>
+                <button onClick={copyAnswer} disabled={answerStatus === "loading"}><IconClipboardData size={15}/>复制摘要</button>
                 <button onClick={() => onToast("已根据回答创建跟进任务")}><IconBolt size={15}/>创建任务</button>
               </div>
-            </div>
+            </article>
+            <aside className="claw-qa-guide">
+              <div>
+                <span><IconSparkles size={18}/></span>
+                <strong>使用方式</strong>
+                <p>先选择范围，再提出指标、对象或时间维度。回答会按结论、依据和行动建议分层展示。</p>
+              </div>
+              <button onClick={() => askClaw("把本周会员经营问题按影响优先级排序")}>生成优先级摘要</button>
+              <button onClick={() => askClaw("把当前回答转成门店可执行任务")}>转成门店任务</button>
+            </aside>
           </div>
           <div className="claw-composer" aria-label="微智 Claw 智能问答输入框">
             <div className="claw-composer__context">
@@ -489,7 +656,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
                   <button
                     className={activeTool === label ? "is-active" : ""}
                     key={label}
-                    onClick={() => askClaw(question, { tool: label, toast: `${label}已完成` })}
+                    onClick={() => selectTool({ label, question })}
                     title={hint}
                     aria-pressed={activeTool === label}
                     disabled={answerStatus === "loading"}
