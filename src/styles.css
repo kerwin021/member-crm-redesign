@@ -306,8 +306,11 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-answer__head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
 .claw-answer__meta { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
 .claw-answer__meta span { min-height: 24px; display: inline-flex; align-items: center; gap: 4px; padding: 0 8px; color: #59677f; border: 1px solid #e3eaf5; border-radius: 14px; background: #fff; font-size: 11px; white-space: nowrap; }
+.claw-answer__meta span.is-loading { color: #9a6510; border-color: #ffe2a8; background: #fff8e8; }
+.claw-answer__meta span.is-ready { color: #128052; border-color: #c7ebd6; background: #effaf4; }
+.claw-answer__meta span.is-error { color: #c44256; border-color: #ffd4dc; background: #fff0f3; }
 .claw-answer strong { display: block; margin-bottom: 8px; color: #263148; font-size: 14px; }
-.claw-answer p { margin: 0; color: #637088; font-size: 13px; line-height: 1.8; }
+.claw-answer p { margin: 0; color: #637088; font-size: 13px; line-height: 1.8; white-space: pre-wrap; }
 .claw-answer__steps { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 12px; }
 .claw-answer__steps span { min-height: 34px; display: flex; align-items: center; gap: 6px; padding: 8px 9px; color: #3d6174; border: 1px solid #dbeaf0; border-radius: 9px; background: #f7fcff; font-size: 11px; line-height: 1.4; }
 .claw-answer__steps svg { flex: 0 0 auto; color: var(--green); }
@@ -327,6 +330,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-tool-pills button { min-height: 34px; display: inline-flex; align-items: center; gap: 6px; padding: 0 11px; color: #4d5b74; border: 1px solid #e0e7f2; border-radius: 18px; background: #f8fbff; font-size: 12px; cursor: pointer; }
 .claw-tool-pills button:hover, .claw-tool-pills button.is-active { color: var(--primary); border-color: #bad0fb; background: #edf4ff; }
 .claw-send-button { min-height: 38px; display: inline-flex; align-items: center; gap: 7px; padding: 0 15px; color: #fff; border: 0; border-radius: 18px; background: var(--primary); cursor: pointer; box-shadow: 0 8px 18px rgba(38,103,244,.22); }
+.claw-composer button:disabled, .claw-prompt-cards button:disabled, .prompt-chips button:disabled { opacity: .55; cursor: not-allowed; transform: none; }
 .claw-followups { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; padding-top: 2px; }
 .claw-followups > span { color: #7d899b; font-size: 12px; }
 .claw-followups button { min-height: 30px; padding: 0 10px; color: #4265a8; border: 1px dashed #cbd8f0; border-radius: 15px; background: #fbfdff; font-size: 12px; cursor: pointer; }

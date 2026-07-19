@@ -72,6 +72,8 @@ import {
 import { FEATURE_PAGE_CONFIG } from "./navigationConfig.jsx";
 import { LtvModelPage } from "./LtvModelPage.jsx";
 
+const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
 const highValueMembers = [
   { name: "林晓然", id: "M202606130021", level: "钻石卡", value: "¥28,640", orders: 32, last: "2 小时前", store: "杭州西湖店", score: 96, trend: "+12.8%" },
   { name: "顾言溪", id: "M202604230192", level: "钻石卡", value: "¥24,980", orders: 28, last: "昨天", store: "宁波鄞州店", score: 93, trend: "+8.6%" },
@@ -216,6 +218,26 @@ function rowsFrom(dataRows) {
   return Array.isArray(dataRows) ? dataRows : [];
 }
 
+function buildKimiClientContext(data) {
+  const dashboard = data.dashboard || {};
+  const insights = data.insights || {};
+  return {
+    source: data.meta?.source,
+    tenant: data.meta?.tenant,
+    generatedAt: data.meta?.generatedAt,
+    memberSummary: dashboard.summary,
+    periodSummary: dashboard.periodSummary,
+    registrationSources: rowsFrom(dashboard.sourceRows).slice(0, 8),
+    valueQuadrant: dashboard.valueQuadrant,
+    memberInsights: insights.members?.stats || [],
+    salesInsights: insights.sales?.stats || [],
+    fanInsights: insights.fans?.stats || [],
+    activeClawInsights: rowsFrom(data.clawInsightCards).slice(0, 6),
+    activeClawSuggestions: rowsFrom(data.clawSuggestionCards).slice(0, 6),
+    availableFollowUps: rowsFrom(data.clawFollowUps).slice(0, 8),
+  };
+}
+
 function useSyncedRows(dataRows) {
   const sourceRows = rowsFrom(dataRows);
   const [rows, setRows] = useState(sourceRows);
@@ -308,6 +330,9 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
   const [activeScope, setActiveScope] = useState(scopeRows[0] || "全部数据");
   const [answer, setAnswer] = useState("选择一个推荐问题，或直接输入会员经营问题，微智 Claw 会生成分析摘要和下一步动作。");
   const [answerSteps, setAnswerSteps] = useState(["识别问题范围", "匹配会员指标", "生成运营建议"]);
+  const [answerStatus, setAnswerStatus] = useState("idle");
+  const [answerMeta, setAnswerMeta] = useState({ model: "Kimi", generatedAt: "" });
+  const [lastQuestion, setLastQuestion] = useState("");
   const [completedActions, setCompletedActions] = useState([]);
   const [recommendRefresh, setRecommendRefresh] = useState(0);
   const insightRows = withIcons(rowsFrom(data.clawInsightCards), [IconArrowUpRight, IconTargetArrow, IconActivity]);
@@ -325,26 +350,49 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
     "claw-qa": "智能问答",
     "claw-prompts": "推荐问题",
   }[activePage] || "本期洞察";
-  const askClaw = (question = prompt, options = {}) => {
+  const askClaw = async (question = prompt, options = {}) => {
     const text = question.trim();
     if (!text) {
       onToast("请输入要分析的问题");
       return;
     }
+    if (answerStatus === "loading") return;
     const nextTool = options.tool || activeTool;
     const nextScope = options.scope || activeScope;
-    const summary = data.dashboard.summary;
-    const primarySource = data.dashboard.sourceRows[0] || ["暂无来源", "0"];
-    const salesTotal = data.insights.sales.stats[0]?.[1] || "¥0";
     setActiveTool(nextTool);
-    setAnswer(`已按“${nextScope} · ${nextTool}”围绕“${text}”完成数据库分析：当前会员总数为 ${summary.totalMembers}，本月新增 ${summary.monthNew}；主要注册来源是${primarySource[0]}（${primarySource[1]} 人），累计销售额为 ${salesTotal}。建议结合当前分群、标签和订单记录继续下钻，并在执行后复盘数据库指标变化。`);
-    setAnswerSteps([
-      `确认分析范围：${nextScope}`,
-      `输出${nextTool}摘要和关键指标`,
-      "沉淀下一步动作，可直接转成任务",
-    ]);
-    setPrompt("");
-    onToast(options.toast || "微智 Claw 已生成回答");
+    setActiveScope(nextScope);
+    setLastQuestion(text);
+    setAnswerStatus("loading");
+    setAnswer("正在读取 MySQL 指标上下文并调用 Kimi 大模型生成回答...");
+    setAnswerSteps(["读取 MySQL 当前数据", "调用 Kimi 大模型", "生成经营分析回答"]);
+    try {
+      const response = await fetch(`${API_BASE}/api/kimi/chat`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ question: text, scope: nextScope, tool: nextTool, context: buildKimiClientContext(data) }),
+      });
+      const payload = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(payload.message || `Kimi API ${response.status}`);
+      setAnswer(payload.answer || "Kimi 已返回结果，但没有可展示的文本内容。");
+      setAnswerSteps(Array.isArray(payload.steps) && payload.steps.length ? payload.steps : [
+        `读取 MySQL 当前数据：${nextScope}`,
+        `调用 Kimi 模型：${payload.model || "Kimi"}`,
+        "生成结论、依据和可执行建议",
+      ]);
+      setAnswerMeta({ model: payload.model || "Kimi", generatedAt: payload.generatedAt || "" });
+      setAnswerStatus("ready");
+      setPrompt("");
+      onToast(options.toast || "Kimi 已生成回答");
+    } catch (error) {
+      setAnswer(`Kimi 调用失败：${error.message}`);
+      setAnswerSteps(["确认服务端已配置 MOONSHOT_API_KEY", "确认 API 服务可以访问 Kimi", "重新发送当前问题"]);
+      setAnswerMeta({ model: "Kimi", generatedAt: "" });
+      setAnswerStatus("error");
+      onToast("Kimi 调用失败");
+    }
   };
   const executeSuggestion = (title, action) => {
     setCompletedActions((current) => current.includes(title) ? current : [...current, title]);
@@ -394,11 +442,12 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
             <div className="qa-welcome"><IconMessageCircle size={38}/><h3>问我任何会员经营问题</h3><p>我会结合当前会员数据给出分析和下一步建议。</p></div>
             <div className="claw-answer">
               <div className="claw-answer__head">
-                <strong>Claw 回答</strong>
+                <strong>{lastQuestion ? `Claw 回答：${lastQuestion}` : "Claw 回答"}</strong>
                 <div className="claw-answer__meta">
                   <span><IconSparkles size={14}/>{activeTool}</span>
                   <span><IconDatabaseExport size={14}/>{activeScope}</span>
-                  <span><IconClock size={14}/>刚刚</span>
+                  <span className={`is-${answerStatus}`}><IconClock size={14}/>{answerStatus === "loading" ? "生成中" : answerMeta.generatedAt ? answerMeta.generatedAt.slice(11, 16) : "待提问"}</span>
+                  <span>{answerMeta.model}</span>
                 </div>
               </div>
               <p>{answer}</p>
@@ -421,6 +470,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
                     key={scope}
                     onClick={() => { setActiveScope(scope); onToast(`已切换到${scope}`); }}
                     aria-pressed={activeScope === scope}
+                    disabled={answerStatus === "loading"}
                   >
                     {scope}
                   </button>
@@ -430,7 +480,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
             <textarea
               value={prompt}
               onChange={(event) => setPrompt(event.target.value)}
-              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); askClaw(); } }}
+              onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey && answerStatus !== "loading") { event.preventDefault(); askClaw(); } }}
               placeholder="问问微智 Claw，例如：本月高价值会员有什么变化？"
             />
             <div className="claw-composer__footer">
@@ -442,16 +492,17 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
                     onClick={() => askClaw(question, { tool: label, toast: `${label}已完成` })}
                     title={hint}
                     aria-pressed={activeTool === label}
+                    disabled={answerStatus === "loading"}
                   >
                     <Icon size={15}/>{label}
                   </button>
                 ))}
               </div>
-              <button className="claw-send-button" onClick={() => askClaw()}><IconSend2 size={18}/>发送</button>
+              <button className="claw-send-button" onClick={() => askClaw()} disabled={answerStatus === "loading"}><IconSend2 size={18}/>{answerStatus === "loading" ? "生成中" : "发送"}</button>
             </div>
             <div className="claw-followups">
               <span>继续追问</span>
-              {followUpRows.map((question) => <button key={question} onClick={() => askClaw(question, { toast: "已生成追问回答" })}>{question}</button>)}
+              {followUpRows.map((question) => <button key={question} onClick={() => askClaw(question, { toast: "已生成追问回答" })} disabled={answerStatus === "loading"}>{question}</button>)}
             </div>
           </div>
           <div className="claw-qa-layout">
@@ -459,7 +510,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
               <div className="business-table-head"><div><h2>推荐问题</h2><p>参考豆包首页问题入口，点击卡片即可提问</p></div></div>
               <div className="claw-prompt-cards">
                 {promptRows.map((item) => (
-                  <button key={item.prompt} onClick={() => askClaw(item.prompt)}>
+                  <button key={item.prompt} onClick={() => askClaw(item.prompt)} disabled={answerStatus === "loading"}>
                     <span>{item.scene}</span>
                     <strong>{item.prompt}</strong>
                     <small>{item.used} 次使用 · {item.owner}</small>
@@ -498,7 +549,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
       {activePage !== "claw-qa" && (
         <section className="panel claw-prompt-panel">
           <div className="business-table-head"><div><h2>你可以问我</h2><p>与右侧 AI 助手一致的推荐问题入口</p></div></div>
-          <div className="prompt-chips">{promptRows.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)}>{item.prompt}</button>)}</div>
+          <div className="prompt-chips">{promptRows.map((item) => <button key={item.prompt} onClick={() => askClaw(item.prompt)} disabled={answerStatus === "loading"}>{item.prompt}</button>)}</div>
         </section>
       )}
     </section>

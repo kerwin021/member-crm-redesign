@@ -29,6 +29,7 @@
 - 聊天会话页面参考桌面微信客服工作台，支持会话筛选、切换、置顶、日期筛选和消息发送。
 - 在“用户数据”之前新增“微智 Claw”业务域，左侧菜单参考右侧 AI 助手能力。
 - 将“智能推荐”能力整合进“智能问答”页面，并升级为大号输入框与推荐问题卡片布局。
+- 智能问答通过服务端 `/api/kimi/chat` 调用 Kimi 大模型，回答会携带当前 MySQL 指标上下文。
 
 ## 单客模型 / LTV 原型
 
@@ -51,6 +52,8 @@ pnpm dev
 
 前端只请求 `/api/app-data`，由 `server/api.py` 从 MySQL 读取会员、分群、标签、商品、订单、微信会话、单客模型 / LTV、各业务域功能记录和微智 Claw 数据。项目不再包含运行时演示数据回退；API 或数据库不可用时会显示明确的连接失败页面。
 
+微智 Claw 的智能问答会请求 `/api/kimi/chat`。该接口同样运行在 `server/api.py` 中，由服务端读取 MySQL 概览数据后再调用 Kimi，前端不会保存或暴露模型密钥。
+
 ```bash
 cp server/.env.example server/.env
 python3 -m pip install -r server/requirements.txt
@@ -60,6 +63,16 @@ pnpm dev
 ```
 
 本地 Vite 已代理 `/api` 到 `http://127.0.0.1:8787`。线上部署时必须在宝塔中把站点的 `/api` 反向代理到 API 进程，或构建前设置 `VITE_API_BASE_URL` 指向公开的 HTTPS API 地址。纯静态 GitHub Pages 未配置 API 时只会显示数据库连接失败状态。
+
+启用 Kimi 智能问答需要在服务端环境中配置：
+
+```bash
+MOONSHOT_API_KEY=你的 Kimi API Key
+KIMI_MODEL=kimi-k2.6
+KIMI_BASE_URL=https://api.moonshot.cn/v1
+```
+
+如果发布到 Sites，也需要在 Sites 生产环境变量里配置同样的 `MOONSHOT_API_KEY`。Sites Worker 会处理同源 `/api/kimi/chat`，并调用 Kimi 返回问答结果。
 
 ## 构建
 

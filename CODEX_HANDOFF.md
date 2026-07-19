@@ -41,6 +41,8 @@ Recent completed work:
 - Added 微智 Claw left navigation: 本期洞察、智能问答、推荐问题.
 - Merged the old 智能推荐 / 智能建议 page into 智能问答.
 - Updated 智能问答 with a larger Doubao-like composer, four tool entrances, recommendation cards, and prompt cards.
+- Added `/api/kimi/chat` so 微智 Claw → 智能问答 can call Kimi from the server with MySQL-backed context. The API key must be configured as `MOONSHOT_API_KEY` on the server.
+- Updated the Sites worker build so hosted `/api/kimi/chat` can also call Kimi when `MOONSHOT_API_KEY` is configured in Sites production environment variables.
 - Added 微信管理 business domain with 聊天会话、社群营销、朋友圈、自动回复.
 - Reworked 聊天会话 as a WeChat-style customer service workspace.
 - Increased AI assistant width, improved content font sizing, and made the AI insight floating button draggable.
@@ -81,6 +83,8 @@ pnpm dev
 
 The frontend fetches `/api/app-data` and accepts only responses marked as MySQL sourced. If the API is unavailable, it shows a database connection error and never falls back to bundled business data.
 
+微智 Claw → 智能问答 posts to `/api/kimi/chat`. The Python server reads compact MySQL-backed business context from `/api/app-data`, calls Kimi, and returns the answer. The Sites worker also supports the same route using the compact context sent by the page. Required env var: `MOONSHOT_API_KEY`; optional vars: `KIMI_MODEL`, `KIMI_BASE_URL`, `KIMI_THINKING`, `KIMI_MAX_TOKENS`, and `KIMI_TIMEOUT_SECONDS`.
+
 ## Recommended Next Prompt For Codex
 
 ```text
@@ -111,6 +115,7 @@ The frontend fetches `/api/app-data` and accepts only responses marked as MySQL 
   - Tool entrances: 数据洞察、生成方案、创建任务、推荐问题.
   - Prompt cards.
   - Integrated 智能推荐 cards.
-  - Send interaction with generated answer and cleared input.
+  - Send interaction that calls `/api/kimi/chat`, shows loading/error states, and clears input only after success.
+- `/api/kimi/chat` returns a clear `kimi_not_configured` error when `MOONSHOT_API_KEY` is missing, and returns a Kimi answer when the key is configured.
 - Desktop and mobile layouts remain usable.
 - Browser console has no relevant errors.

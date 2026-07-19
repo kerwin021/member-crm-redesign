@@ -3,6 +3,8 @@ import json
 import os
 import threading
 import time
+import urllib.error
+import urllib.request
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -15,6 +17,8 @@ from pymysql.cursors import DictCursor
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP_DATA_CACHE = {"expires_at": 0.0, "payload": None}
 APP_DATA_CACHE_LOCK = threading.Lock()
+KIMI_DEFAULT_BASE_URL = "https://api.moonshot.cn/v1"
+KIMI_DEFAULT_MODEL = "kimi-k2.6"
 
 
 def load_env_file(path):
@@ -37,6 +41,14 @@ load_env_file(os.path.join(ROOT_DIR, "server", ".env"))
 
 def env(name, default=None):
     return os.environ.get(name, default)
+
+
+class ApiError(Exception):
+    def __init__(self, status, error, message):
+        super().__init__(message)
+        self.status = status
+        self.error = error
+        self.message = message
 
 
 def db_config():
@@ -1191,13 +1203,173 @@ def get_app_data():
         return payload
 
 
+def read_json_body(handler, max_bytes=16 * 1024):
+    content_length = int(handler.headers.get("Content-Length", "0") or "0")
+    if content_length <= 0:
+        return {}
+    if content_length > max_bytes:
+        raise ApiError(413, "payload_too_large", "请求内容过大，请缩短问题后重试")
+    raw_body = handler.rfile.read(content_length)
+    try:
+        return json.loads(raw_body.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError):
+        raise ApiError(400, "invalid_json", "请求格式不是有效的 JSON")
+
+
+def require_kimi_api_key():
+    api_key = env("MOONSHOT_API_KEY") or env("KIMI_API_KEY")
+    if not api_key:
+        raise ApiError(503, "kimi_not_configured", "Kimi API 密钥未配置，请在服务端设置 MOONSHOT_API_KEY")
+    return api_key
+
+
+def compact_kimi_context(app_data):
+    dashboard = app_data.get("dashboard", {})
+    insights = app_data.get("insights", {})
+    return {
+        "source": app_data.get("meta", {}).get("source"),
+        "tenant": app_data.get("meta", {}).get("tenant", {}),
+        "generatedAt": app_data.get("meta", {}).get("generatedAt"),
+        "memberSummary": dashboard.get("summary", {}),
+        "periodSummary": dashboard.get("periodSummary", {}),
+        "registrationSources": dashboard.get("sourceRows", [])[:8],
+        "valueQuadrant": dashboard.get("valueQuadrant", {}),
+        "memberInsights": insights.get("members", {}).get("stats", []),
+        "salesInsights": insights.get("sales", {}).get("stats", []),
+        "fanInsights": insights.get("fans", {}).get("stats", []),
+        "activeClawInsights": app_data.get("clawInsightCards", [])[:6],
+        "activeClawSuggestions": app_data.get("clawSuggestionCards", [])[:6],
+        "availableFollowUps": app_data.get("clawFollowUps", [])[:8],
+    }
+
+
+def build_kimi_messages(question, scope, tool, app_data):
+    context_json = json.dumps(compact_kimi_context(app_data), ensure_ascii=False, default=json_default)
+    system_prompt = (
+        "你是微智 Claw，定位是会员数据与 SCRM 经营分析助手。"
+        "你必须优先基于用户当前系统提供的 MySQL 指标上下文回答；"
+        "如果上下文不足，明确说明缺少哪些数据，不要编造具体数字。"
+        "回答使用中文，结构清晰，包含：结论、数据依据、建议动作、下一步追问。"
+        "建议动作要能被会员运营人员直接执行。"
+    )
+    user_prompt = (
+        f"分析范围：{scope}\n"
+        f"功能入口：{tool}\n"
+        f"当前 MySQL 指标上下文：{context_json}\n\n"
+        f"用户问题：{question}"
+    )
+    return [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+
+def normalize_kimi_content(content):
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts = []
+        for item in content:
+            if isinstance(item, dict):
+                text = item.get("text") or item.get("content")
+                if text:
+                    parts.append(str(text))
+            elif item:
+                parts.append(str(item))
+        return "\n".join(parts).strip()
+    return str(content or "").strip()
+
+
+def call_kimi(messages):
+    api_key = require_kimi_api_key()
+    base_url = (env("KIMI_BASE_URL") or env("MOONSHOT_BASE_URL") or KIMI_DEFAULT_BASE_URL).rstrip("/")
+    model = env("KIMI_MODEL", KIMI_DEFAULT_MODEL)
+    max_tokens = int(env("KIMI_MAX_TOKENS", "1600"))
+    timeout = int(env("KIMI_TIMEOUT_SECONDS", "45"))
+    request_body = {
+        "model": model,
+        "messages": messages,
+        "temperature": float(env("KIMI_TEMPERATURE", "0.3")),
+        "max_tokens": max_tokens,
+    }
+    thinking = env("KIMI_THINKING", "disabled")
+    if model.startswith("kimi-k2") and thinking in {"enabled", "disabled"}:
+        request_body["thinking"] = {"type": thinking}
+
+    request = urllib.request.Request(
+        f"{base_url}/chat/completions",
+        data=json.dumps(request_body, ensure_ascii=False).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as upstream:
+            payload = json.loads(upstream.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        raw_error = exc.read().decode("utf-8", errors="replace")
+        try:
+            error_payload = json.loads(raw_error)
+            message = error_payload.get("error", {}).get("message") or raw_error
+        except json.JSONDecodeError:
+            message = raw_error or str(exc)
+        raise ApiError(502, "kimi_api_error", f"Kimi API 返回错误：{message}")
+    except urllib.error.URLError as exc:
+        raise ApiError(502, "kimi_network_error", f"无法连接 Kimi API：{exc.reason}")
+    except TimeoutError:
+        raise ApiError(504, "kimi_timeout", "Kimi API 请求超时")
+
+    choices = payload.get("choices") or []
+    message = choices[0].get("message", {}) if choices else {}
+    answer = normalize_kimi_content(message.get("content"))
+    if not answer:
+        raise ApiError(502, "kimi_empty_response", "Kimi API 未返回有效回答")
+    return {"answer": answer, "model": payload.get("model") or model, "usage": payload.get("usage") or {}}
+
+
+def handle_kimi_chat(handler):
+    payload = read_json_body(handler)
+    question = str(payload.get("question") or "").strip()
+    scope = str(payload.get("scope") or "当前数据").strip()[:80]
+    tool = str(payload.get("tool") or "智能问答").strip()[:80]
+    if not question:
+        raise ApiError(400, "empty_question", "请输入要提问的内容")
+    if len(question) > 2000:
+        raise ApiError(400, "question_too_long", "问题不能超过 2000 个字符")
+
+    require_kimi_api_key()
+    app_data = get_app_data()
+    result = call_kimi(build_kimi_messages(question, scope, tool, app_data))
+    response(
+        handler,
+        200,
+        {
+            "ok": True,
+            "answer": result["answer"],
+            "model": result["model"],
+            "usage": result["usage"],
+            "scope": scope,
+            "tool": tool,
+            "generatedAt": datetime.now().isoformat(timespec="seconds"),
+            "steps": [
+                f"读取 MySQL 当前数据：{scope}",
+                f"调用 Kimi 模型：{result['model']}",
+                "生成结论、依据和可执行建议",
+            ],
+        },
+    )
+
+
 def response(handler, status, body):
     payload = json.dumps(body, ensure_ascii=False, default=json_default).encode("utf-8")
     handler.send_response(status)
     handler.send_header("Content-Type", "application/json; charset=utf-8")
     handler.send_header("Cache-Control", "no-store")
     handler.send_header("Access-Control-Allow-Origin", env("CORS_ORIGIN", "*"))
-    handler.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+    handler.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
     handler.send_header("Access-Control-Allow-Headers", "Content-Type")
     handler.end_headers()
     handler.wfile.write(payload)
@@ -1220,6 +1392,18 @@ class ApiHandler(BaseHTTPRequestHandler):
             response(self, 404, {"error": "not_found"})
         except Exception as exc:
             response(self, 503, {"error": "database_unavailable", "message": str(exc)})
+
+    def do_POST(self):
+        path = urlparse(self.path).path
+        try:
+            if path == "/api/kimi/chat":
+                handle_kimi_chat(self)
+                return
+            response(self, 404, {"error": "not_found"})
+        except ApiError as exc:
+            response(self, exc.status, {"error": exc.error, "message": exc.message})
+        except Exception as exc:
+            response(self, 503, {"error": "api_unavailable", "message": str(exc)})
 
     def log_message(self, fmt, *args):
         print("[%s] %s" % (self.log_date_time_string(), fmt % args))
