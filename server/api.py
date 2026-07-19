@@ -1289,7 +1289,7 @@ def call_kimi(messages):
     request_body = {
         "model": model,
         "messages": messages,
-        "temperature": float(env("KIMI_TEMPERATURE", "0.3")),
+        "temperature": float(env("KIMI_TEMPERATURE", "0.6")),
         "max_tokens": max_tokens,
     }
     thinking = env("KIMI_THINKING", "disabled")

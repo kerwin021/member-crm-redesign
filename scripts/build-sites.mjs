@@ -103,7 +103,7 @@ async function handleKimiChat(request, env) {
   const requestBody = {
     model,
     messages: buildKimiMessages({ ...payload, question }),
-    temperature: Number(env?.KIMI_TEMPERATURE || 0.3),
+    temperature: Number(env?.KIMI_TEMPERATURE || 0.6),
     max_tokens: Number(env?.KIMI_MAX_TOKENS || 1600),
   };
   const thinking = env?.KIMI_THINKING || "disabled";

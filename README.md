@@ -70,6 +70,7 @@ pnpm dev
 MOONSHOT_API_KEY=你的 Kimi API Key
 KIMI_MODEL=kimi-k2.6
 KIMI_BASE_URL=https://api.moonshot.cn/v1
+KIMI_TEMPERATURE=0.6
 ```
 
 如果发布到 Sites，也需要在 Sites 生产环境变量里配置同样的 `MOONSHOT_API_KEY`。Sites Worker 会处理同源 `/api/kimi/chat`，并调用 Kimi 返回问答结果。
