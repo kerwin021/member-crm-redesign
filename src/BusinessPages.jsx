@@ -379,11 +379,26 @@ function parseClawAnswer(text) {
   return blocks;
 }
 
-function ClawAnswerContent({ text }) {
+function ClawAnswerContent({ text, hideActions = false }) {
   const blocks = useMemo(() => parseClawAnswer(text), [text]);
+  const visibleBlocks = useMemo(() => {
+    if (!hideActions) return blocks;
+    let skipActions = false;
+    return blocks.filter((block) => {
+      if (block.type === "heading") {
+        skipActions = /^(建议动作|建议行动|推荐行动)$/.test(String(block.text || "").trim());
+        return !skipActions;
+      }
+      if (skipActions) {
+        if (block.type === "divider") skipActions = false;
+        return block.type === "divider";
+      }
+      return true;
+    });
+  }, [blocks, hideActions]);
   return (
     <div className="claw-markdown">
-      {blocks.map((block, index) => {
+      {visibleBlocks.map((block, index) => {
         if (block.type === "divider") return <hr key={`divider-${index}`} />;
         if (block.type === "heading") return block.level <= 2 ? <h3 key={`heading-${index}`}>{renderClawInline(block.text)}</h3> : <h4 key={`heading-${index}`}>{renderClawInline(block.text)}</h4>;
         if (block.type === "quote") return <blockquote key={`quote-${index}`}>{renderClawInline(block.text)}</blockquote>;
@@ -466,7 +481,6 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
   const [answerMeta, setAnswerMeta] = useState({ model: "Kimi", generatedAt: "" });
   const [lastQuestion, setLastQuestion] = useState("");
   const [completedActions, setCompletedActions] = useState([]);
-  const [recommendRefresh, setRecommendRefresh] = useState(0);
   const insightRows = withIcons(rowsFrom(data.clawInsightCards), [IconArrowUpRight, IconTargetArrow, IconActivity]);
   const suggestionRows = withIcons(rowsFrom(data.clawSuggestionCards), [IconSparkles, IconHeartHandshake, IconUsersGroup]);
   const promptRows = rowsFrom(data.clawPromptTemplates);
@@ -529,6 +543,13 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
   const executeSuggestion = (title, action) => {
     setCompletedActions((current) => current.includes(title) ? current : [...current, title]);
     onToast(`${action}任务已创建`);
+  };
+  const openSuggestionAction = (title, action) => {
+    if (action === "创建任务") {
+      executeSuggestion(title, action);
+      return;
+    }
+    onToast(`${action}入口已打开`);
   };
   const selectTool = ({ label, question }) => {
     setActiveTool(label);
@@ -607,7 +628,44 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
                     <p>选择分析范围和工具模式后输入问题，或点击下方推荐问题直接开始。</p>
                     <button onClick={() => setPrompt("本月高价值会员有什么变化？")}>填入示例问题</button>
                   </div>
-                ) : <ClawAnswerContent text={answer} />}
+                ) : <ClawAnswerContent text={answer} hideActions={answerStatus === "ready" && suggestionRows.length > 0} />}
+                {answerStatus === "ready" && suggestionRows.length > 0 && (
+                  <section className="claw-answer__recommendations" aria-label="建议动作">
+                    <div className="claw-answer__section-head">
+                      <div>
+                        <span><IconBolt size={16}/></span>
+                        <div><strong>建议动作</strong><p>把回答转成可执行的运营动作，完成后可继续追踪结果。</p></div>
+                      </div>
+                      <small>基于当前数据生成，仅供参考</small>
+                    </div>
+                    <div className="claw-action-list">
+                      {suggestionRows.slice(0, 3).map(({ title, desc, action, primaryAction, secondaryActions, targetAudience, owner, channel, impactMetric, tone, expected, status }, index) => {
+                        const done = completedActions.includes(title) || status === "completed";
+                        const mainAction = primaryAction || action || "创建任务";
+                        const extraActions = Array.isArray(secondaryActions) ? secondaryActions : [];
+                        return (
+                          <article className={`claw-action-row is-${tone} ${done ? "is-done" : ""}`} key={title}>
+                            <span className="claw-action-rank">{done ? <IconCheck size={15}/> : index + 1}</span>
+                            <div className="claw-action-main">
+                              <div className="claw-action-title"><strong>{title}</strong><span className={`claw-action-status ${done ? "is-done" : ""}`}>{done ? "已创建" : "待执行"}</span></div>
+                              <p>{desc}</p>
+                              <div className="claw-action-meta">
+                                <span><IconUsersGroup size={13}/><b>目标人群</b>{targetAudience || "数据库未配置"}</span>
+                                <span><IconIdBadge2 size={13}/><b>负责人</b>{owner || "数据库未配置"}</span>
+                                <span><IconBrandWechat size={13}/><b>触达渠道</b>{channel || "数据库未配置"}</span>
+                              </div>
+                            </div>
+                            <div className="claw-action-impact"><small>{impactMetric || "预计影响"}</small><strong>{expected || "数据库未配置"}</strong></div>
+                            <div className="claw-action-controls">
+                              <button className="claw-action-primary" onClick={() => openSuggestionAction(title, mainAction)}>{done ? <IconCheck size={14}/> : <IconBolt size={14}/>} {done ? "已创建" : mainAction}</button>
+                              {extraActions.length > 0 && <div className="claw-action-secondary">{extraActions.map((extraAction) => <button key={`${title}-${extraAction}`} onClick={() => openSuggestionAction(title, extraAction)}>{extraAction}</button>)}</div>}
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
               </div>
               <div className="claw-answer__steps">
                 {answerSteps.map((step) => <span key={step}><IconCheck size={14}/>{step}</span>)}
@@ -672,7 +730,7 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
               {followUpRows.map((question) => <button key={question} onClick={() => askClaw(question, { toast: "已生成追问回答" })} disabled={answerStatus === "loading"}>{question}</button>)}
             </div>
           </div>
-          <div className="claw-qa-layout">
+          <div className="claw-qa-layout is-prompts-only">
             <section className="claw-qa-prompts">
               <div className="business-table-head"><div><h2>推荐问题</h2><p>参考豆包首页问题入口，点击卡片即可提问</p></div></div>
               <div className="claw-prompt-cards">
@@ -683,23 +741,6 @@ function ClawWorkspacePage({ activePage, onToast, data }) {
                     <small>{item.used} 次使用 · {item.owner}</small>
                   </button>
                 ))}
-              </div>
-            </section>
-            <section className="claw-qa-recommend">
-              <div className="business-table-head"><div><h2>智能推荐</h2><p>原智能推荐页能力已并入问答页，可直接执行</p></div><button className="quiet-button" onClick={() => { setRecommendRefresh((count) => count + 1); onToast("已生成 3 条新推荐"); }}>重新生成</button></div>
-              <div className="claw-suggestion-grid is-compact">
-                {suggestionRows.map(({ title, desc, action, tone, icon: Icon, expected }, index) => {
-                  const done = completedActions.includes(title);
-                  return (
-                    <article className={`claw-suggestion-card is-${tone} ${done ? "is-done" : ""}`} key={title}>
-                      <span><Icon size={20}/></span>
-                      <h3>{title}</h3>
-                      <p>{desc}</p>
-                      <small>推荐批次 #{recommendRefresh + 1} · 预计影响 {expected || ["4.8%", "6.2%", "9.1%"][index]}</small>
-                      <button onClick={() => executeSuggestion(title, action)}>{done ? <IconCheck size={15}/> : null}{done ? "已创建" : action}<IconChevronRight size={15}/></button>
-                    </article>
-                  );
-                })}
               </div>
             </section>
           </div>

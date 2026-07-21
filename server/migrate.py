@@ -11,6 +11,7 @@ from api import ROOT_DIR, db_config, load_env_file
 MIGRATIONS = (
     os.path.join(ROOT_DIR, "database", "mysql", "01_schema.sql"),
     os.path.join(ROOT_DIR, "database", "mysql", "02_seed_demo.sql"),
+    os.path.join(ROOT_DIR, "database", "mysql", "03_migrate_claw_action_metadata.sql"),
 )
 
 

@@ -712,22 +712,32 @@ def load_app_data():
                 (tenant_id,),
             )
         ]
-        claw_suggestions = [
-            {
-                "title": row["title"],
-                "desc": row["description"],
-                "action": row["action_label"],
-                "tone": COLOR_CYCLE[index % len(COLOR_CYCLE)],
-                "expected": row["expected_impact"] or "",
-            }
-            for index, row in enumerate(
-                query_all(
-                    conn,
-                    "SELECT title, description, action_label, expected_impact FROM ai_claw_suggestions WHERE tenant_id = %s ORDER BY created_at DESC, id DESC LIMIT 12",
-                    (tenant_id,),
-                )
+        claw_suggestions = []
+        for index, row in enumerate(
+            query_all(
+                conn,
+                "SELECT title, description, action_label, expected_impact, status, payload_json FROM ai_claw_suggestions WHERE tenant_id = %s ORDER BY created_at DESC, id DESC LIMIT 12",
+                (tenant_id,),
             )
-        ]
+        ):
+            metadata = parse_json_value(row["payload_json"], {}) or {}
+            secondary_actions = metadata.get("secondaryActions", [])
+            claw_suggestions.append(
+                {
+                    "title": row["title"],
+                    "desc": row["description"],
+                    "action": row["action_label"],
+                    "primaryAction": metadata.get("primaryAction") or row["action_label"],
+                    "secondaryActions": secondary_actions if isinstance(secondary_actions, list) else [],
+                    "targetAudience": metadata.get("targetAudience") or metadata.get("target") or "",
+                    "owner": metadata.get("owner") or "",
+                    "channel": metadata.get("channel") or "",
+                    "impactMetric": metadata.get("impactMetric") or "",
+                    "status": row["status"] or "pending",
+                    "tone": COLOR_CYCLE[index % len(COLOR_CYCLE)],
+                    "expected": row["expected_impact"] or "",
+                }
+            )
         claw_prompts = [
             {
                 "scene": row["scene"],

@@ -394,9 +394,9 @@ ON DUPLICATE KEY UPDATE
 
 INSERT INTO ai_claw_suggestions (tenant_id, title, description, action_label, expected_impact, payload_json)
 VALUES
-  (@tenant_id, '针对重要发展会员', '推送成长型会员礼包，预计可提升银卡到金卡升级率 4.8%。', '发放优惠券', '4.8%', JSON_OBJECT('target', '重要发展会员')),
-  (@tenant_id, '优化会员等级权益', '补强银卡 / 金卡权益激励，降低会员停留在低等级的时间。', '去配置', '6.2%', JSON_OBJECT('module', 'loyalty')),
-  (@tenant_id, '沉睡会员唤醒计划', '按最后活跃时间和历史客单价分层触达，优先召回中高价值人群。', '创建分群', '9.1%', JSON_OBJECT('target', '沉睡会员'))
+  (@tenant_id, '针对重要发展会员', '推送成长型会员礼包，预计可提升银卡到金卡升级率 4.8%。', '发放优惠券', '4.8%', JSON_OBJECT('targetAudience', '重要发展会员', 'owner', '会员运营组', 'channel', '企业微信 + 会员中心', 'impactMetric', '金卡升级率', 'primaryAction', '创建任务', 'secondaryActions', JSON_ARRAY('生成分群', '查看会员'))),
+  (@tenant_id, '优化会员等级权益', '补强银卡 / 金卡权益激励，降低会员停留在低等级的时间。', '去配置', '6.2%', JSON_OBJECT('targetAudience', '银卡 / 金卡会员', 'owner', '忠诚度运营组', 'channel', '会员权益中心', 'impactMetric', '等级升级率', 'primaryAction', '创建任务', 'secondaryActions', JSON_ARRAY('生成分群', '查看会员'))),
+  (@tenant_id, '沉睡会员唤醒计划', '按最后活跃时间和历史客单价分层触达，优先召回中高价值人群。', '创建分群', '9.1%', JSON_OBJECT('targetAudience', '沉睡会员', 'owner', 'CRM 运营组', 'channel', '短信 + 企业微信', 'impactMetric', '召回复购率', 'primaryAction', '创建任务', 'secondaryActions', JSON_ARRAY('生成分群', '查看会员')))
 ON DUPLICATE KEY UPDATE
   description = VALUES(description),
   action_label = VALUES(action_label),

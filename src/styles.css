@@ -312,6 +312,40 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-answer__meta span.is-ready { color: #128052; border-color: #c7ebd6; background: #effaf4; }
 .claw-answer__meta span.is-error { color: #c44256; border-color: #ffd4dc; background: #fff0f3; }
 .claw-answer__body { min-height: 260px; max-height: min(58vh, 640px); overflow: auto; padding: 18px; background: radial-gradient(circle at 12% 0%, rgba(38,103,244,.06), transparent 34%); }
+.claw-answer__recommendations { margin-top: 22px; padding-top: 18px; border-top: 1px solid #e8eef7; }
+.claw-answer__section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; margin-bottom: 10px; }
+.claw-answer__section-head > div:first-child { display: flex; align-items: flex-start; gap: 8px; }
+.claw-answer__section-head > div:first-child > span { width: 30px; height: 30px; display: grid; place-items: center; flex: 0 0 auto; color: #15945b; border-radius: 10px; background: #eaf9f1; }
+.claw-answer__section-head strong { display: block; color: #263148; font-size: 15px; line-height: 1.35; }
+.claw-answer__section-head p { margin: 3px 0 0; color: #7c889b; font-size: 12px; line-height: 1.55; }
+.claw-answer__section-head > small { color: #9aa5b6; font-size: 11px; line-height: 1.5; text-align: right; }
+.claw-action-list { display: grid; gap: 8px; }
+.claw-action-row { display: grid; grid-template-columns: 28px minmax(0, 1fr) minmax(112px, auto) minmax(192px, auto); gap: 11px; align-items: center; padding: 11px 12px; border: 1px solid #e1e9f4; border-radius: 13px; background: #fff; transition: .18s ease; }
+.claw-action-row:hover { border-color: #b9cff8; box-shadow: 0 8px 20px rgba(38,103,244,.06); }
+.claw-action-row.is-done { border-color: #cbeeda; background: #fbfffd; }
+.claw-action-rank { width: 25px; height: 25px; display: grid; place-items: center; color: #fff; border-radius: 50%; background: linear-gradient(135deg, #37c68b, #19a56d); font-size: 12px; font-weight: 700; }
+.claw-action-row.is-blue .claw-action-rank { background: linear-gradient(135deg, #3d80f7, #2869f6); }
+.claw-action-row.is-purple .claw-action-rank { background: linear-gradient(135deg, #886ff0, #6c55d8); }
+.claw-action-row.is-orange .claw-action-rank { background: linear-gradient(135deg, #f1a43e, #e9851c); }
+.claw-action-main { min-width: 0; }
+.claw-action-title { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.claw-action-title strong { overflow: hidden; color: #263148; font-size: 13px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.claw-action-main > p { margin: 4px 0 7px; overflow: hidden; color: #6d7a8f; font-size: 12px; line-height: 1.5; text-overflow: ellipsis; white-space: nowrap; }
+.claw-action-status { padding: 3px 7px; color: #9a6510; border-radius: 10px; background: #fff6df; font-size: 10px; white-space: nowrap; }
+.claw-action-status.is-done { color: #128052; background: #eaf9f1; }
+.claw-action-meta { display: flex; flex-wrap: wrap; gap: 5px 9px; color: #728097; font-size: 10px; }
+.claw-action-meta span { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
+.claw-action-meta svg { color: #8ba3ca; flex: 0 0 auto; }
+.claw-action-meta b { color: #9aa5b6; font-weight: 500; }
+.claw-action-impact { display: grid; gap: 3px; align-content: center; min-width: 0; }
+.claw-action-impact small { color: #8a96a9; font-size: 10px; white-space: nowrap; }
+.claw-action-impact strong { color: #15945b; font-size: 13px; white-space: nowrap; }
+.claw-action-controls { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 7px; min-width: 0; }
+.claw-action-primary { min-height: 30px; display: inline-flex; align-items: center; gap: 4px; padding: 0 10px; color: #fff; border: 0; border-radius: 8px; background: var(--primary); box-shadow: 0 6px 14px rgba(38,103,244,.16); font-size: 11px; cursor: pointer; white-space: nowrap; }
+.claw-action-row.is-done .claw-action-primary { color: #128052; background: #eaf9f1; box-shadow: none; }
+.claw-action-secondary { display: flex; align-items: center; gap: 6px; }
+.claw-action-secondary button { padding: 0; color: #416cc0; border: 0; background: transparent; font-size: 11px; cursor: pointer; white-space: nowrap; }
+.claw-action-secondary button:hover { color: var(--primary); text-decoration: underline; }
 .claw-answer-empty { min-height: 240px; display: grid; place-items: center; align-content: center; gap: 8px; color: #7563e8; text-align: center; }
 .claw-answer-empty h3 { margin: 0; color: #2f3a52; font-size: 18px; }
 .claw-answer-empty p { max-width: 360px; margin: 0; color: #7b879b; font-size: 13px; line-height: 1.7; }
@@ -365,6 +399,7 @@ button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-
 .claw-followups button { min-height: 30px; padding: 0 10px; color: #4265a8; border: 1px dashed #cbd8f0; border-radius: 15px; background: #fbfdff; font-size: 12px; cursor: pointer; }
 .claw-followups button:hover { color: var(--primary); border-style: solid; background: #f1f6ff; }
 .claw-qa-layout { display: grid; grid-template-columns: minmax(0, .92fr) minmax(340px, 1fr); gap: 14px; }
+.claw-qa-layout.is-prompts-only { grid-template-columns: 1fr; }
 .claw-qa-prompts, .claw-qa-recommend { min-width: 0; }
 .claw-prompt-cards { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
 .claw-prompt-cards button { min-height: 108px; display: grid; align-content: start; gap: 7px; padding: 14px; border: 1px solid #e2e9f5; border-radius: 16px; background: linear-gradient(145deg, #ffffff, #f8fbff); text-align: left; cursor: pointer; transition: .18s ease; }
@@ -464,6 +499,12 @@ tbody tr:hover { background: #fbfdff; }
   .claw-answer__head, .claw-composer__context { align-items: stretch; flex-direction: column; }
   .claw-answer__body { max-height: none; }
   .claw-answer__meta, .claw-composer__context > div { justify-content: flex-start; }
+  .claw-answer__section-head { flex-direction: column; }
+  .claw-answer__section-head > small { text-align: left; }
+  .claw-action-row { grid-template-columns: 28px minmax(0, 1fr); align-items: start; }
+  .claw-action-impact, .claw-action-controls { grid-column: 2; justify-content: flex-start; }
+  .claw-action-impact { display: flex; align-items: baseline; gap: 7px; }
+  .claw-action-main > p { white-space: normal; }
   .claw-composer__footer { align-items: stretch; flex-direction: column; }
   .claw-tool-pills { display: grid; grid-template-columns: 1fr 1fr; }
   .claw-send-button { justify-content: center; }
