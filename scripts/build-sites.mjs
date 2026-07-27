@@ -73,6 +73,38 @@ async function handleAppData(request, env) {
   return new Response(body, { status: upstream.status, headers: jsonHeaders });
 }
 
+async function handleAudienceConditions(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: jsonHeaders });
+  if (request.method !== "POST") return jsonResponse({ error: "method_not_allowed", message: "Only POST is supported" }, 405);
+
+  const apiBase = String(env?.CRM_API_BASE_URL || "").replace(/\\/$/, "");
+  if (!apiBase) return jsonResponse({ error: "mysql_api_not_configured", message: "数据库 API 未配置，当前页面不会使用演示数据。请配置 CRM_API_BASE_URL。" }, 503);
+
+  let body;
+  try {
+    body = await request.text();
+  } catch (error) {
+    return jsonResponse({ error: "invalid_request", message: "无法读取人群条件请求：" + error.message }, 400);
+  }
+
+  let upstream;
+  try {
+    upstream = await fetch(apiBase + "/api/audience/conditions", {
+      method: "POST",
+      headers: {
+        "Content-Type": request.headers.get("Content-Type") || "application/json",
+        Accept: "application/json",
+      },
+      body,
+    });
+  } catch (error) {
+    return jsonResponse({ error: "mysql_api_network_error", message: "无法连接数据库 API：" + error.message }, 502);
+  }
+
+  const responseBody = await upstream.text();
+  return new Response(responseBody, { status: upstream.status, headers: jsonHeaders });
+}
+
 function normalizeKimiContent(content) {
   if (typeof content === "string") return content.trim();
   if (Array.isArray(content)) {
@@ -171,6 +203,7 @@ const worker = {
   async fetch(request, env) {
     const url = new URL(request.url);
     if (url.pathname === "/api/app-data") return handleAppData(request, env);
+    if (url.pathname === "/api/audience/conditions") return handleAudienceConditions(request, env);
     if (url.pathname === "/api/kimi/chat") return handleKimiChat(request, env);
     if (env?.ASSETS?.fetch) {
       try {
