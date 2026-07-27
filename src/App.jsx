@@ -643,6 +643,7 @@ export function App() {
   const [period, setPeriod] = useState("30");
   const [toast, setToast] = useState("");
   const [action, setAction] = useState("");
+  const [navigationState, setNavigationState] = useState(null);
   const toastTimeout = useRef(null);
   const previousViewportWidth = useRef(window.innerWidth);
   const { data: appData, status: dataStatus, error: dataError, reload: reloadData } = useAppData();
@@ -668,8 +669,10 @@ export function App() {
     toastTimeout.current = window.setTimeout(() => setToast(""), 2600);
   };
 
-  const navigate = (id) => {
+  const navigate = (id, state = null) => {
     setActivePage(id);
+    if (PAGE_META[id]?.domain) setActiveDomain(PAGE_META[id].domain);
+    setNavigationState(state);
     setMobileNav(false);
   };
 
@@ -678,11 +681,11 @@ export function App() {
   return (
     <div className={`app-shell ${sidebarCollapsed ? "sidebar-collapsed" : ""} ${aiOpen ? "ai-open" : ""}`}>
       <Sidebar activeDomain={activeDomain} activePage={activePage} collapsed={sidebarCollapsed} mobileOpen={mobileNav} onNavigate={navigate} onToggle={() => setSidebarCollapsed((value) => !value)} onClose={() => setMobileNav(false)} />
-      <Header activeDomain={activeDomain} onDomain={(domain) => { setActiveDomain(domain); setActivePage(DOMAIN_PAGES[domain]); setMobileNav(false); showToast(`已切换至${domain}`); }} onMenu={() => setMobileNav(true)} onToast={showToast} />
+      <Header activeDomain={activeDomain} onDomain={(domain) => { setActiveDomain(domain); setActivePage(DOMAIN_PAGES[domain]); setNavigationState(null); setMobileNav(false); showToast(`已切换至${domain}`); }} onMenu={() => setMobileNav(true)} onToast={showToast} />
       <main className="main-area">
         <div className="breadcrumb"><span /><strong>{currentMeta.group}</strong>{activePage !== DOMAIN_PAGES[activeDomain] && <><IconChevronRight size={14} /><span>{currentMeta.title}</span></>}</div>
         <div className="content-scroll">
-          {activePage === "dashboard" ? <Dashboard period={period} onPeriod={setPeriod} onToast={showToast} onAction={setAction} data={appData.dashboard} /> : activePage === "members" ? <MembersPage onToast={showToast} onAction={setAction} data={appData} /> : <BusinessPageRouter activePage={activePage} onToast={showToast} onAction={setAction} data={appData} />}
+          {activePage === "dashboard" ? <Dashboard period={period} onPeriod={setPeriod} onToast={showToast} onAction={setAction} data={appData.dashboard} /> : activePage === "members" ? <MembersPage onToast={showToast} onAction={setAction} data={appData} /> : <BusinessPageRouter activePage={activePage} onToast={showToast} onAction={setAction} data={appData} onNavigate={navigate} navigationState={navigationState} onDataChanged={reloadData} />}
         </div>
       </main>
       <AIPanel open={aiOpen} onToggle={() => setAiOpen((value) => !value)} onToast={showToast} onAction={setAction} data={appData} />

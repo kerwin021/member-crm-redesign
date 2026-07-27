@@ -132,15 +132,16 @@ ON DUPLICATE KEY UPDATE
   coverage_count = VALUES(coverage_count),
   rules_json = VALUES(rules_json);
 
-INSERT INTO crm_segments (tenant_id, name, description, segment_type, rule_json, enabled, member_count, refreshed_at)
+INSERT INTO crm_segments (tenant_id, name, description, segment_type, rule_json, audience_json, enabled, member_count, refreshed_at)
 VALUES
-  (@tenant_id, '高价值活跃会员', '近 90 天消费 ≥ 3000 元，且 30 天内有消费', 'dynamic', JSON_OBJECT('total_spend_90d', JSON_OBJECT('gte', 3000), 'active_days', JSON_OBJECT('lte', 30)), TRUE, 8342, NOW(3)),
-  (@tenant_id, '低活跃待唤醒会员', '60 天未消费，历史消费次数 ≥ 3 次', 'dynamic', JSON_OBJECT('inactive_days', JSON_OBJECT('gte', 60), 'order_count', JSON_OBJECT('gte', 3)), TRUE, 6175, NOW(3)),
-  (@tenant_id, '近 30 天新会员', '注册时间在近 30 天内的有效会员', 'system', JSON_OBJECT('register_days', JSON_OBJECT('lte', 30)), TRUE, 26843, NOW(3)),
-  (@tenant_id, '门店重点维护会员', '由门店人工加入的重点跟进会员', 'static', JSON_OBJECT(), FALSE, 1256, NOW(3))
+  (@tenant_id, '高价值活跃会员', '近 90 天消费 ≥ 3000 元，且 30 天内有消费', 'dynamic', JSON_OBJECT('total_spend_90d', JSON_OBJECT('gte', 3000), 'active_days', JSON_OBJECT('lte', 30)), JSON_OBJECT('version', 1, 'logic', 'AND', 'tagIds', JSON_ARRAY((SELECT id FROM crm_tags WHERE tenant_id = @tenant_id AND name = '高价值会员')), 'rules', JSON_ARRAY(JSON_OBJECT('field', 'total_spend_90d', 'operator', 'gte', 'value', 3000), JSON_OBJECT('field', 'active_days', 'operator', 'lte', 'value', 30))), TRUE, 8342, NOW(3)),
+  (@tenant_id, '低活跃待唤醒会员', '60 天未消费，历史消费次数 ≥ 3 次', 'dynamic', JSON_OBJECT('inactive_days', JSON_OBJECT('gte', 60), 'order_count', JSON_OBJECT('gte', 3)), JSON_OBJECT('version', 1, 'logic', 'AND', 'tagIds', JSON_ARRAY((SELECT id FROM crm_tags WHERE tenant_id = @tenant_id AND name = '待唤醒会员')), 'rules', JSON_ARRAY(JSON_OBJECT('field', 'inactive_days', 'operator', 'gte', 'value', 60), JSON_OBJECT('field', 'order_count', 'operator', 'gte', 'value', 3))), TRUE, 6175, NOW(3)),
+  (@tenant_id, '近 30 天新会员', '注册时间在近 30 天内的有效会员', 'system', JSON_OBJECT('register_days', JSON_OBJECT('lte', 30)), JSON_OBJECT('version', 1, 'logic', 'AND', 'tagIds', JSON_ARRAY(), 'rules', JSON_ARRAY(JSON_OBJECT('field', 'register_days', 'operator', 'lte', 'value', 30))), TRUE, 26843, NOW(3)),
+  (@tenant_id, '门店重点维护会员', '由门店人工加入的重点跟进会员', 'static', JSON_OBJECT(), JSON_OBJECT('version', 1, 'logic', 'AND', 'tagIds', JSON_ARRAY(), 'rules', JSON_ARRAY()), FALSE, 1256, NOW(3))
 ON DUPLICATE KEY UPDATE
   description = VALUES(description),
   rule_json = VALUES(rule_json),
+  audience_json = VALUES(audience_json),
   enabled = VALUES(enabled),
   member_count = VALUES(member_count),
   refreshed_at = VALUES(refreshed_at);
@@ -242,6 +243,7 @@ SET campaign_type = 'coupon',
     starts_at = '2026-06-01 00:00:00',
     ends_at = '2026-06-30 23:59:59',
     rules_json = JSON_OBJECT('coupon_code', 'CPN-VIP-202606', 'goal', 'repeat_purchase'),
+    audience_json = (SELECT audience_json FROM crm_segments WHERE id = @segment_high_value_id),
     metrics_json = JSON_OBJECT('sent', 16820, 'converted', 2346, 'gmv', 386420.50),
     created_by = @admin_user_id
 WHERE tenant_id = @tenant_id AND name = '6月会员日复购提升';
@@ -267,6 +269,7 @@ SET campaign_type = 'reach',
     starts_at = '2026-06-18 09:00:00',
     ends_at = '2026-06-25 23:59:59',
     rules_json = JSON_OBJECT('coupon_code', 'CPN-WAKE-202606', 'touch_channels', JSON_ARRAY('sms', 'wechat')),
+    audience_json = (SELECT audience_json FROM crm_segments WHERE id = @segment_low_active_id),
     metrics_json = JSON_OBJECT('planned', 6175, 'sent', 0, 'converted', 0),
     created_by = @admin_user_id
 WHERE tenant_id = @tenant_id AND name = '沉睡会员7日唤醒';
@@ -292,6 +295,7 @@ SET campaign_type = 'coupon',
     starts_at = '2026-06-01 00:00:00',
     ends_at = '2026-06-30 23:59:59',
     rules_json = JSON_OBJECT('coupon_code', 'CPN-NEW-202606', 'goal', 'first_order'),
+    audience_json = (SELECT audience_json FROM crm_segments WHERE id = @segment_new_member_id),
     metrics_json = JSON_OBJECT('sent', 26843, 'converted', 4128, 'conversion_rate', 0.1538),
     created_by = @admin_user_id
 WHERE tenant_id = @tenant_id AND name = '新会员首单转化';

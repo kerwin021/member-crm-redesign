@@ -1024,3 +1024,40 @@ tbody tr:hover { background: #fbfdff; }
   .ltv-review > section, .ltv-review > aside { padding: 15px; }
   .ltv-review__chart { height: 210px; }
 }
+
+.data-source-badge { display: inline-flex; align-items: center; padding: 7px 10px; border: 1px solid #cfe8df; border-radius: 999px; color: #168a6c; background: #effaf6; font-size: 10px; font-weight: 700; }
+.audience-builder { display: grid; gap: 14px; padding: 14px; border: 1px solid #e1eaf5; border-radius: 12px; background: #fbfdff; }
+.audience-builder__head, .audience-builder__section-head, .audience-builder__summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.audience-builder__head strong { display: block; color: #27354c; font-size: 13px; }
+.audience-builder__head small { display: block; margin-top: 4px; color: #8b96a9; font-size: 9px; line-height: 1.45; }
+.audience-builder__section { display: grid; gap: 8px; padding-top: 12px; border-top: 1px solid #e9eef5; }
+.audience-builder__section > span, .audience-builder__section-head > span { color: #67758b; font-size: 10px; font-weight: 700; }
+.audience-tag-options { display: flex; flex-wrap: wrap; gap: 7px; }
+.audience-tag-options label { display: inline-flex; align-items: center; gap: 5px; padding: 7px 9px; border: 1px solid #e2e8f1; border-radius: 8px; color: #66758b; background: #fff; font-size: 10px; cursor: pointer; }
+.audience-tag-options label.is-selected { border-color: #9bbcf9; color: #2869f6; background: #eef4ff; }
+.audience-tag-options input { position: absolute; opacity: 0; pointer-events: none; }
+.audience-rule-list { display: grid; gap: 7px; }
+.audience-rule { display: grid; grid-template-columns: 1fr 1fr 30px; gap: 7px; }
+.audience-rule select { min-width: 0; height: 31px; padding: 0 8px; border: 1px solid #e1e7f0; border-radius: 7px; color: #53627a; background: #fff; font-size: 10px; }
+.audience-rule .icon-button { width: 30px; height: 31px; color: #9aa5b6; border: 1px solid #e1e7f0; background: #fff; }
+.audience-builder__summary { padding-top: 11px; border-top: 1px dashed #dfe7f1; color: #8591a4; font-size: 9px; }
+.audience-builder__summary strong { color: #2869f6; font-size: 11px; }
+.marketing-audience-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(360px, .85fr); gap: 14px; align-items: start; }
+.marketing-campaign-page .business-table-card { min-width: 0; }
+.marketing-campaign-page tbody tr.is-selected { background: #f2f6ff; }
+.marketing-campaign-page tbody tr.is-selected td:first-child { box-shadow: inset 3px 0 #2869f6; }
+.marketing-audience-editor { display: grid; gap: 15px; padding: 16px; }
+.marketing-segment-select { display: grid; gap: 6px; }
+.marketing-segment-select span { color: #67758b; font-size: 10px; font-weight: 700; }
+.marketing-segment-select select { height: 34px; padding: 0 9px; border: 1px solid #dfe7f1; border-radius: 8px; color: #44536b; background: #fff; font-size: 11px; }
+.marketing-audience-editor__foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 14px; border-top: 1px solid #e9eef5; }
+.marketing-audience-editor__foot > span { color: #8793a6; font-size: 9px; }
+
+@media (max-width: 980px) {
+  .marketing-audience-layout { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  .marketing-audience-editor__foot { align-items: stretch; flex-direction: column; }
+  .audience-rule { grid-template-columns: 1fr 1fr 30px; }
+}

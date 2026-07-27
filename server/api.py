@@ -101,6 +101,120 @@ def parse_json_value(value, default=None):
         return default
 
 
+def normalize_audience(value, legacy=None):
+    """Return the shared, persisted audience condition contract."""
+    parsed = parse_json_value(value, None)
+    if not isinstance(parsed, dict):
+        parsed = {}
+    tag_ids = []
+    for tag_id in parsed.get("tagIds", parsed.get("tag_ids", [])) or []:
+        try:
+            normalized_id = int(tag_id)
+        except (TypeError, ValueError):
+            continue
+        if normalized_id > 0 and normalized_id not in tag_ids:
+            tag_ids.append(normalized_id)
+    rules = []
+    for item in parsed.get("rules", []) or []:
+        if not isinstance(item, dict) or not item.get("field"):
+            continue
+        rules.append(
+            {
+                "field": str(item["field"]),
+                "operator": str(item.get("operator", item.get("op", "eq"))),
+                "value": item.get("value"),
+            }
+        )
+    if not parsed and isinstance(legacy, dict):
+        for field, condition in legacy.items():
+            if not isinstance(condition, dict) or len(condition) != 1:
+                continue
+            operator, value = next(iter(condition.items()))
+            rules.append({"field": str(field), "operator": str(operator), "value": value})
+    return {
+        "version": 1,
+        "logic": "OR" if str(parsed.get("logic", "AND")).upper() == "OR" else "AND",
+        "tagIds": tag_ids,
+        "rules": rules,
+    }
+
+
+def audience_member_count(conn, tenant_id, audience):
+    """Count current MySQL members matching the shared audience conditions."""
+    clauses = ["m.tenant_id = %s"]
+    params = [tenant_id]
+    tag_ids = audience.get("tagIds", [])
+    for tag_id in tag_ids:
+        clauses.append(
+            "EXISTS (SELECT 1 FROM crm_member_tags mt WHERE mt.tenant_id = m.tenant_id AND mt.member_id = m.id AND mt.tag_id = %s)"
+        )
+        params.append(tag_id)
+
+    field_sql = {
+        "level": "l.name",
+        "store": "s.name",
+        "source": "m.source_channel",
+        "status": "m.status",
+        "total_spend": "COALESCE(mm.total_spend, 0)",
+        "order_count": "COALESCE(mm.order_count, 0)",
+    }
+    supported_operators = {"eq", "in", "gt", "gte", "lt", "lte", "contains"}
+    for item in audience.get("rules", []):
+        field = str(item.get("field", ""))
+        operator = str(item.get("operator", "eq"))
+        value = item.get("value")
+        if field == "register_days" and operator == "lte":
+            clauses.append("m.register_at >= DATE_SUB(CURRENT_DATE, INTERVAL %s DAY)")
+            params.append(max(0, as_int(value)))
+            continue
+        if field == "inactive_days" and operator == "gte":
+            clauses.append("COALESCE(mm.last_order_at, '1000-01-01') <= DATE_SUB(CURRENT_DATE, INTERVAL %s DAY)")
+            params.append(max(0, as_int(value)))
+            continue
+        if field == "active_days" and operator == "lte":
+            clauses.append("COALESCE(mm.last_order_at, '1000-01-01') >= DATE_SUB(CURRENT_DATE, INTERVAL %s DAY)")
+            params.append(max(0, as_int(value)))
+            continue
+        expression = field_sql.get(field)
+        if not expression or operator not in supported_operators:
+            continue
+        if operator == "in":
+            values = value if isinstance(value, list) else [value]
+            values = [item for item in values if item not in (None, "")]
+            if not values:
+                continue
+            clauses.append(f"{expression} IN ({','.join(['%s'] * len(values))})")
+            params.extend(values)
+        elif operator == "contains":
+            clauses.append(f"{expression} LIKE %s")
+            params.append(f"%{value or ''}%")
+        else:
+            sql_operator = {"eq": "=", "gt": ">", "gte": ">=", "lt": "<", "lte": "<="}[operator]
+            clauses.append(f"{expression} {sql_operator} %s")
+            params.append(value)
+
+    return as_int(
+        query_one(
+            conn,
+            f"""
+            SELECT COUNT(DISTINCT m.id) AS total
+            FROM crm_members m
+            LEFT JOIN loyalty_membership_levels l ON l.id = m.level_id
+            LEFT JOIN org_stores s ON s.id = m.register_store_id
+            LEFT JOIN crm_member_metrics mm ON mm.member_id = m.id
+            WHERE {' AND '.join(clauses)}
+            """,
+            tuple(params),
+        )["total"]
+    )
+
+
+def invalidate_app_data():
+    with APP_DATA_CACHE_LOCK:
+        APP_DATA_CACHE["payload"] = None
+        APP_DATA_CACHE["expires_at"] = 0.0
+
+
 def format_number(value):
     return f"{as_int(value):,}"
 
@@ -520,12 +634,13 @@ def load_app_data():
                 "updated": format_dt(row["updated_at"], "%m-%d %H:%M") or "暂无更新",
                 "color": COLOR_CYCLE[index % len(COLOR_CYCLE)],
                 "rules": parse_json_value(row["rule_json"], {}) or {},
+                "audience": normalize_audience(row["audience_json"], row["rule_json"]),
                 "refreshed": format_dt(row["refreshed_at"], "%m-%d %H:%M") or "数据库暂无",
             }
             for index, row in enumerate(
                 query_all(
                     conn,
-                    "SELECT id, name, description, member_count, segment_type, enabled, rule_json, refreshed_at, updated_at FROM crm_segments WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
+                    "SELECT id, name, description, member_count, segment_type, enabled, rule_json, audience_json, refreshed_at, updated_at FROM crm_segments WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
                     (tenant_id,),
                 )
             )
@@ -594,6 +709,59 @@ def load_app_data():
             "enabled": as_int(tag_stats_row.get("enabled_total")),
             "coverage": as_int(tag_stats_row.get("coverage_total")),
             "ruleTags": as_int(tag_stats_row.get("rule_tag_total")),
+        }
+
+        stores = [
+            row["name"]
+            for row in query_all(conn, "SELECT name FROM org_stores WHERE tenant_id = %s ORDER BY name", (tenant_id,))
+        ]
+        marketing_campaigns = []
+        for row in query_all(
+            conn,
+            """
+            SELECT c.id, c.name, c.campaign_type, c.status, c.target_segment_id,
+                   c.budget_amount, c.starts_at, c.ends_at, c.rules_json,
+                   c.audience_json, c.updated_at,
+                   s.name AS target_segment_name, s.audience_json AS segment_audience_json
+            FROM marketing_campaigns c
+            LEFT JOIN crm_segments s ON s.id = c.target_segment_id AND s.tenant_id = c.tenant_id
+            WHERE c.tenant_id = %s
+            ORDER BY c.updated_at DESC, c.id DESC
+            """,
+            (tenant_id,),
+        ):
+            campaign_audience = normalize_audience(
+                row["audience_json"],
+                parse_json_value(row["segment_audience_json"], {}) or {},
+            )
+            marketing_campaigns.append(
+                {
+                    "id": row["id"],
+                    "name": row["name"],
+                    "type": row["campaign_type"],
+                    "status": {
+                        "running": "运行中",
+                        "scheduled": "已排期",
+                        "draft": "草稿",
+                        "completed": "已完成",
+                    }.get(row["status"], row["status"] or "未知"),
+                    "targetSegmentId": row["target_segment_id"],
+                    "targetSegmentName": row["target_segment_name"] or "未关联分组",
+                    "budget": format_money_exact(row["budget_amount"]),
+                    "startsAt": format_dt(row["starts_at"]) or "数据库暂无",
+                    "endsAt": format_dt(row["ends_at"]) or "数据库暂无",
+                    "rules": parse_json_value(row["rules_json"], {}) or {},
+                    "audience": campaign_audience,
+                    "updated": format_dt(row["updated_at"], "%m-%d %H:%M") or "暂无更新",
+                }
+            )
+
+        audience_options = {
+            "tags": [{"id": tag["id"], "name": tag["name"], "category": tag["category"]} for tag in tags],
+            "levels": [row["name"] for row in level_rows],
+            "stores": stores,
+            "sources": [row[0] for row in source_rows],
+            "statuses": ["active", "to_wake", "frozen", "disabled"],
         }
 
         products = [
@@ -951,10 +1119,6 @@ def load_app_data():
                 }
             )
 
-        stores = [
-            row["name"]
-            for row in query_all(conn, "SELECT name FROM org_stores WHERE tenant_id = %s ORDER BY name", (tenant_id,))
-        ]
         register_range = query_one(
             conn,
             "SELECT MIN(DATE(register_at)) AS min_day, MAX(DATE(register_at)) AS max_day FROM crm_members WHERE tenant_id = %s",
@@ -1299,6 +1463,8 @@ def load_app_data():
             "logRows": log_rows,
             "segments": segments,
             "segmentStats": segment_stats,
+            "marketingCampaigns": marketing_campaigns,
+            "audienceOptions": audience_options,
             "tags": tags,
             "tagStats": tag_stats,
             "tagLogRows": tag_log_rows,
@@ -1387,6 +1553,80 @@ def read_json_body(handler, max_bytes=16 * 1024):
         return json.loads(raw_body.decode("utf-8"))
     except (UnicodeDecodeError, json.JSONDecodeError):
         raise ApiError(400, "invalid_json", "请求格式不是有效的 JSON")
+
+
+def handle_audience_conditions(handler):
+    payload = read_json_body(handler)
+    try:
+        segment_id = int(payload.get("segmentId"))
+    except (TypeError, ValueError):
+        raise ApiError(400, "segment_required", "请选择要保存的人群分组")
+    if segment_id <= 0:
+        raise ApiError(400, "segment_required", "请选择要保存的人群分组")
+
+    conditions = normalize_audience(payload.get("conditions"))
+    if len(conditions["tagIds"]) > 50 or len(conditions["rules"]) > 20:
+        raise ApiError(400, "too_many_conditions", "人群条件数量超出限制")
+    conditions_json = json.dumps(conditions, ensure_ascii=False, default=json_default)
+    campaign_id = payload.get("campaignId")
+    if campaign_id in (None, ""):
+        campaign_id = None
+    else:
+        try:
+            campaign_id = int(campaign_id)
+        except (TypeError, ValueError):
+            raise ApiError(400, "invalid_campaign", "营销活动编号无效")
+
+    with get_connection() as conn:
+        tenant_code = env("APP_TENANT_CODE", "ym-foods")
+        tenant = query_one(conn, "SELECT id FROM app_tenants WHERE code = %s LIMIT 1", (tenant_code,))
+        if not tenant:
+            raise ApiError(404, "tenant_not_found", "当前租户不存在")
+        tenant_id = tenant["id"]
+        segment = query_one(
+            conn,
+            "SELECT id, name FROM crm_segments WHERE id = %s AND tenant_id = %s LIMIT 1",
+            (segment_id, tenant_id),
+        )
+        if not segment:
+            raise ApiError(404, "segment_not_found", "要保存的人群分组不存在")
+        member_count = audience_member_count(conn, tenant_id, conditions)
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE crm_segments
+                SET audience_json = %s,
+                    member_count = %s,
+                    refreshed_at = CURRENT_TIMESTAMP(3),
+                    updated_at = CURRENT_TIMESTAMP(3)
+                WHERE id = %s AND tenant_id = %s
+                """,
+                (conditions_json, member_count, segment_id, tenant_id),
+            )
+            if campaign_id:
+                cursor.execute(
+                    """
+                    UPDATE marketing_campaigns
+                    SET target_segment_id = %s,
+                        audience_json = %s,
+                        updated_at = CURRENT_TIMESTAMP(3)
+                    WHERE id = %s AND tenant_id = %s
+                    """,
+                    (segment_id, conditions_json, campaign_id, tenant_id),
+                )
+        invalidate_app_data()
+        response(
+            handler,
+            200,
+            {
+                "meta": {"source": "mysql", "tenant": tenant_code},
+                "segmentId": segment_id,
+                "segmentName": segment["name"],
+                "campaignId": campaign_id,
+                "conditions": conditions,
+                "memberCount": member_count,
+            },
+        )
 
 
 def require_kimi_api_key():
@@ -1569,6 +1809,9 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self):
         path = urlparse(self.path).path
         try:
+            if path == "/api/audience/conditions":
+                handle_audience_conditions(self)
+                return
             if path == "/api/kimi/chat":
                 handle_kimi_chat(self)
                 return

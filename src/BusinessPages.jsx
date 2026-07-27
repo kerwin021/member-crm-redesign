@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   IconActivity,
@@ -73,6 +73,48 @@ import { FEATURE_PAGE_CONFIG } from "./navigationConfig.jsx";
 import { LtvModelPage } from "./LtvModelPage.jsx";
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || "";
+
+const AUDIENCE_RULE_FIELDS = [
+  { value: "level", label: "会员等级", options: (source) => source.levels.map((value) => ({ value, label: value })) },
+  { value: "store", label: "归属门店", options: (source) => source.stores.map((value) => ({ value, label: value })) },
+  { value: "source", label: "注册来源", options: (source) => source.sources.map((value) => ({ value, label: value })) },
+  {
+    value: "status",
+    label: "会员状态",
+    options: () => [
+      { value: "active", label: "活跃" },
+      { value: "to_wake", label: "待唤醒" },
+      { value: "frozen", label: "冻结" },
+      { value: "disabled", label: "停用" },
+    ],
+  },
+];
+
+function normalizeAudience(value) {
+  const source = value || {};
+  return {
+    version: 1,
+    logic: "AND",
+    tagIds: [...new Set((source.tagIds || source.tag_ids || []).map(Number).filter((id) => id > 0))],
+    rules: (source.rules || []).filter((rule) => rule?.field && rule?.value !== undefined && rule?.value !== "").map((rule) => ({
+      field: rule.field,
+      operator: rule.operator || "eq",
+      value: rule.value,
+    })),
+  };
+}
+
+async function persistAudienceConditions({ segmentId, campaignId, conditions }) {
+  const response = await fetch(`${API_BASE}/api/audience/conditions`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify({ segmentId, campaignId, conditions: normalizeAudience(conditions) }),
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.message || `API ${response.status}`);
+  if (payload?.meta?.source !== "mysql") throw new Error("保存结果不是 MySQL 数据");
+  return payload;
+}
 
 const highValueMembers = [
   { name: "林晓然", id: "M202606130021", level: "钻石卡", value: "¥28,640", orders: 32, last: "2 小时前", store: "杭州西湖店", score: 96, trend: "+12.8%" },
@@ -930,6 +972,63 @@ function SegmentsPage({ onToast, data }) {
   return <section className="business-page"><PageHeader title="会员分组" subtitle="通过规则或人工选择建立可持续运营的会员人群" primaryLabel="新建分组" primaryIcon={IconUsersGroup} onPrimary={() => setDialog(true)} actions={<button className="outline-button" onClick={() => onToast("分群数据已同步") }><IconRefresh size={16} />立即同步</button>} /><StatCards items={[{ label: "分组总数", value: String(segmentStats.total ?? segments.length), note: `已启用 ${segmentStats.enabled ?? 0} 个`, icon: IconUsersGroup }, { label: "已覆盖会员", value: Number(segmentStats.coveredMembers || 0).toLocaleString(), note: `覆盖率 ${totalMembers ? ((Number(segmentStats.coveredMembers || 0) / totalMembers) * 100).toFixed(2) : "0.00"}%`, icon: IconUsers, tone: "green" }, { label: "今日更新", value: String(segmentStats.updatedToday ?? 0), note: "数据库更新时间为今天", icon: IconRefresh, tone: "orange" }, { label: "启用分组", value: String(segmentStats.enabled ?? 0), note: "数据库当前启用状态", icon: IconBolt, tone: "purple" }]} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索分组名称" onReset={() => setQuery("")} onSearch={() => onToast(`已找到 ${rows.length} 个会员分组`)}><select><option>全部类型</option><option>动态分群</option><option>静态分群</option><option>系统分群</option></select><select><option>全部状态</option><option>启用</option><option>停用</option></select></SearchFilters><div className="segment-grid">{rows.map((item) => <article className="segment-card" key={item.id}><div className="segment-card__head"><span className={`segment-icon is-${item.color}`}><IconUsersGroup size={22} /></span><Toggle checked={item.status} label={`${item.name}状态`} onChange={() => setSegments((current) => current.map((segment) => segment.id === item.id ? { ...segment, status: !segment.status } : segment))} /></div><h2>{item.name}</h2><p>{item.desc}</p><div className="segment-card__meta"><span><strong>{item.members.toLocaleString()}</strong> 位会员</span><Pill tone={item.type === "动态分群" ? "blue" : item.type === "系统分群" ? "green" : "purple"}>{item.type}</Pill></div><div className="segment-card__foot"><small>更新：{item.updated}</small><div><button onClick={() => setSelected(item)}><IconEye size={16} /></button><button onClick={() => { setSelected(item); onToast("可在详情中调整分群规则"); }}><IconEdit size={16} /></button></div></div></article>)}{!rows.length && <EmptyFiltered />}</div><FormDialog open={dialog} title="新建会员分组" subtitle="设置人群名称与筛选规则" onClose={() => setDialog(false)} onSave={save} fields={[{ key: "name", label: "分组名称", placeholder: "例如：高潜力新会员" }, { key: "type", label: "分组类型", type: "select", options: ["动态分群", "静态分群"] }, { key: "rule", label: "分组规则", type: "textarea", full: true, placeholder: "例如：注册 30 天内，且累计消费金额 ≥ 300 元" }]} /><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${selected?.type || ""} · ${selected?.members.toLocaleString() || 0} 位会员`} onClose={() => setSelected(null)} footer={<><button className="outline-button" onClick={() => onToast("分群名单已导出")}>导出名单</button><button className="primary-button" onClick={() => onToast("营销任务创建成功")}>创建营销任务</button></>}><h3>分群规则</h3><div className="rule-builder">{objectEntries(selected?.rules).map(([key, value]) => <div key={key}><span>{key}</span><b>数据库规则</b><strong>{displayDatabaseValue(value)}</strong></div>)}{!objectEntries(selected?.rules).length && <small>数据库暂无规则明细</small>}</div><h3>人群概览</h3><div className="drawer-metrics"><div><small>会员数</small><strong>{Number(selected?.members || 0).toLocaleString()}</strong></div><div><small>最近计算</small><strong>{selected?.refreshed || "数据库暂无"}</strong></div><div><small>分组状态</small><strong>{selected?.status ? "启用" : "停用"}</strong></div></div><h3>关联任务</h3><div className="linked-task"><IconDiscount2 size={18} /><div><strong>数据库暂无关联任务</strong><small>当前页面未读取到任务关联记录</small></div><IconChevronRight size={16} /></div></Drawer></section>;
 }
 
+function AudienceConditionBuilder({ conditions, options, onChange }) {
+  const safeOptions = {
+    tags: options?.tags || [],
+    levels: options?.levels || [],
+    stores: options?.stores || [],
+    sources: options?.sources || [],
+  };
+  const current = normalizeAudience(conditions);
+  const update = (patch) => onChange({ ...current, ...patch });
+  const toggleTag = (tagId) => {
+    const id = Number(tagId);
+    update({ tagIds: current.tagIds.includes(id) ? current.tagIds.filter((item) => item !== id) : [...current.tagIds, id] });
+  };
+  const addRule = () => {
+    const field = AUDIENCE_RULE_FIELDS.find((item) => item.options(safeOptions).length);
+    const first = field?.options(safeOptions)[0];
+    if (field && first) update({ rules: [...current.rules, { field: field.value, operator: "eq", value: first.value }] });
+  };
+  const updateRule = (index, patch) => update({ rules: current.rules.map((rule, ruleIndex) => ruleIndex === index ? { ...rule, ...patch } : rule) });
+  return (
+    <div className="audience-builder">
+      <div className="audience-builder__head"><div><strong>统一人群条件</strong><small>会员分组与营销筛选共用，保存后写入 MySQL</small></div><Pill tone="green">AND</Pill></div>
+      <div className="audience-builder__section"><span>会员标签</span><div className="audience-tag-options">{safeOptions.tags.map((tag) => <label key={tag.id} className={current.tagIds.includes(Number(tag.id)) ? "is-selected" : ""}><input type="checkbox" checked={current.tagIds.includes(Number(tag.id))} onChange={() => toggleTag(tag.id)} /><IconTag size={15} />{tag.name}</label>)}{!safeOptions.tags.length && <small>数据库暂无可选会员标签</small>}</div></div>
+      <div className="audience-builder__section"><div className="audience-builder__section-head"><span>其他会员条件</span><button type="button" className="quiet-button" onClick={addRule}><IconPlus size={14} />添加条件</button></div><div className="audience-rule-list">{current.rules.map((rule, index) => { const selectedField = AUDIENCE_RULE_FIELDS.find((item) => item.value === rule.field) || AUDIENCE_RULE_FIELDS[0]; const values = selectedField.options(safeOptions); return <div className="audience-rule" key={`${rule.field}-${index}`}><select aria-label={`条件字段 ${index + 1}`} value={selectedField.value} onChange={(event) => { const nextField = AUDIENCE_RULE_FIELDS.find((item) => item.value === event.target.value) || selectedField; const nextValues = nextField.options(safeOptions); updateRule(index, { field: nextField.value, value: nextValues[0]?.value || "" }); }}><option value={selectedField.value}>{selectedField.label}</option>{AUDIENCE_RULE_FIELDS.filter((item) => item.value !== selectedField.value && item.options(safeOptions).length).map((item) => <option value={item.value} key={item.value}>{item.label}</option>)}</select><select aria-label={`条件值 ${index + 1}`} value={rule.value} onChange={(event) => updateRule(index, { value: event.target.value })}>{values.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select><button type="button" className="icon-button" aria-label={`删除条件 ${index + 1}`} onClick={() => update({ rules: current.rules.filter((_, ruleIndex) => ruleIndex !== index) })}><IconTrash size={15} /></button></div>; })}{!current.rules.length && <small>可添加等级、门店、来源或状态条件</small>}</div></div>
+      <div className="audience-builder__summary"><span>已选 {current.tagIds.length} 个标签 · {current.rules.length} 条属性条件</span><strong>{current.tagIds.length + current.rules.length} 项</strong></div>
+    </div>
+  );
+}
+
+function SegmentsPageV2({ onToast, data, onNavigate, onDataChanged }) {
+  const [segments, setSegments] = useSyncedRows(data.segments);
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState(null);
+  const [draftAudience, setDraftAudience] = useState(normalizeAudience());
+  const [saving, setSaving] = useState(false);
+  const rows = segments.filter((item) => item.name.includes(query));
+  const openSegment = (item) => { setSelected(item); setDraftAudience(normalizeAudience(item.audience)); };
+  const saveAudience = async (goToMarketing = false) => {
+    if (!selected) return;
+    setSaving(true);
+    try {
+      const payload = await persistAudienceConditions({ segmentId: selected.id, conditions: draftAudience });
+      const updated = { ...selected, audience: payload.conditions, members: payload.memberCount, updated: "刚刚", refreshed: "刚刚" };
+      setSegments((current) => current.map((item) => item.id === selected.id ? updated : item));
+      setSelected(updated);
+      onDataChanged?.();
+      onToast(`“${selected.name}”的人群条件已保存`);
+      if (goToMarketing) onNavigate("marketing-campaigns", { audience: { ...payload.conditions, segmentId: selected.id, segmentName: selected.name } });
+    } catch (error) {
+      onToast(`保存失败：${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <section className="business-page"><PageHeader title="会员分组" subtitle="通过规则或人工选择建立可持续运营的会员人群" actions={<span className="data-source-badge">条件数据来自 MySQL</span>} /><SearchFilters query={query} onQuery={setQuery} placeholder="搜索分组名称" onReset={() => setQuery("")} onSearch={() => onToast(`已找到 ${rows.length} 个会员分组`)}><select><option>全部类型</option><option>动态分群</option><option>静态分群</option><option>系统分群</option></select></SearchFilters><div className="segment-grid">{rows.map((item) => <article className="segment-card" key={item.id}><div className="segment-card__head"><span className={`segment-icon is-${item.color}`}><IconUsersGroup size={22} /></span><Pill tone={item.status ? "green" : "red"}>{item.status ? "启用" : "停用"}</Pill></div><h2>{item.name}</h2><p>{item.desc}</p><div className="segment-card__meta"><span><strong>{Number(item.members || 0).toLocaleString()}</strong> 位会员</span><Pill tone={item.type === "动态分群" ? "blue" : item.type === "系统分群" ? "green" : "purple"}>{item.type}</Pill></div><div className="segment-card__foot"><small>更新：{item.updated}</small><button className="table-link" onClick={() => openSegment(item)}><IconEdit size={15} />编辑条件</button></div></article>)}{!rows.length && <EmptyFiltered />}</div><Drawer open={!!selected} title={selected?.name || ""} subtitle={`${selected?.type || ""} · ${Number(selected?.members || 0).toLocaleString()} 位会员`} onClose={() => setSelected(null)} footer={<><button className="outline-button" disabled={saving} onClick={() => saveAudience(false)}>{saving ? "保存中..." : "保存分组条件"}</button><button className="primary-button" disabled={saving} onClick={() => saveAudience(true)}>进入营销筛选<IconChevronRight size={15} /></button></>}><AudienceConditionBuilder conditions={draftAudience} options={data.audienceOptions} onChange={setDraftAudience} /><h3>原始分组规则</h3><div className="rule-builder">{objectEntries(selected?.rules).map(([key, value]) => <div key={key}><span>{key}</span><b>数据库规则</b><strong>{displayDatabaseValue(value)}</strong></div>)}{!objectEntries(selected?.rules).length && <small>数据库暂无规则明细</small>}</div><div className="drawer-metrics"><div><small>当前会员数</small><strong>{Number(selected?.members || 0).toLocaleString()}</strong></div><div><small>最近计算</small><strong>{selected?.refreshed || "数据库暂无"}</strong></div><div><small>条件状态</small><strong>{draftAudience.tagIds.length + draftAudience.rules.length ? "已配置" : "未配置"}</strong></div></div></Drawer></section>;
+}
+
 function TagsPage({ onToast, data }) {
   const [tags, setTags] = useSyncedRows(data.tags);
   const [query, setQuery] = useState("");
@@ -1156,6 +1255,56 @@ function DatabaseDomainOverviewPage({ pageId, onToast, data }) {
   );
 }
 
+function MarketingCampaignsPage({ onToast, data, navigationState, onDataChanged }) {
+  const sourceCampaigns = rowsFrom(data.marketingCampaigns);
+  const segments = rowsFrom(data.segments);
+  const contextAudience = navigationState?.audience;
+  const [campaigns, setCampaigns] = useState(sourceCampaigns);
+  const [selectedCampaignId, setSelectedCampaignId] = useState(contextAudience ? "" : sourceCampaigns[0]?.id || "");
+  const [segmentId, setSegmentId] = useState(contextAudience?.segmentId || sourceCampaigns[0]?.targetSegmentId || segments[0]?.id || "");
+  const [conditions, setConditions] = useState(normalizeAudience(contextAudience || sourceCampaigns[0]?.audience || segments.find((item) => item.id === (sourceCampaigns[0]?.targetSegmentId || segments[0]?.id))?.audience));
+  const [saving, setSaving] = useState(false);
+  const selectedCampaign = campaigns.find((item) => String(item.id) === String(selectedCampaignId));
+  const selectedSegment = segments.find((item) => String(item.id) === String(segmentId));
+
+  useEffect(() => {
+    if (!navigationState?.audience) return;
+    setSelectedCampaignId("");
+    setSegmentId(navigationState.audience.segmentId || "");
+    setConditions(normalizeAudience(navigationState.audience));
+  }, [navigationState]);
+
+  const chooseCampaign = (campaign) => {
+    setSelectedCampaignId(campaign.id);
+    setSegmentId(campaign.targetSegmentId || "");
+    setConditions(normalizeAudience(campaign.audience || segments.find((item) => item.id === campaign.targetSegmentId)?.audience));
+  };
+  const chooseSegment = (nextId) => {
+    setSegmentId(nextId);
+    const nextSegment = segments.find((item) => String(item.id) === String(nextId));
+    setConditions(normalizeAudience(nextSegment?.audience));
+  };
+  const save = async () => {
+    if (!segmentId) {
+      onToast("请先选择一个会员分组");
+      return;
+    }
+    setSaving(true);
+    try {
+      const payload = await persistAudienceConditions({ segmentId, campaignId: selectedCampaign?.id, conditions });
+      setConditions(payload.conditions);
+      setCampaigns((current) => current.map((campaign) => campaign.id === selectedCampaign?.id ? { ...campaign, targetSegmentId: segmentId, targetSegmentName: selectedSegment?.name || payload.segmentName, audience: payload.conditions } : campaign));
+      onDataChanged?.();
+      onToast(`人群筛选已保存回“${payload.segmentName}”`);
+    } catch (error) {
+      onToast(`保存失败：${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+  return <section className="business-page marketing-campaign-page"><PageHeader title="营销活动" subtitle="活动与会员分组共用同一套可持久化人群条件" actions={<span className="data-source-badge">营销活动与分组均来自 MySQL</span>} /><div className="marketing-audience-layout"><section className="panel business-table-card"><div className="business-table-head"><div><h2>活动列表</h2><p>点击活动后编辑目标人群，修改可直接保存回分组</p></div><span className="record-count">共 {campaigns.length} 个活动</span></div><div className="table-scroll"><table><thead><tr><th>活动名称</th><th>目标分组</th><th>状态</th><th>预算</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{campaigns.map((campaign) => <tr key={campaign.id} className={campaign.id === selectedCampaign?.id ? "is-selected" : ""}><td><strong>{campaign.name}</strong></td><td>{campaign.targetSegmentName}</td><td><Pill tone={campaign.status === "运行中" ? "green" : "orange"}>{campaign.status}</Pill></td><td>{campaign.budget}</td><td>{campaign.updated}</td><td><button className="table-link" onClick={() => chooseCampaign(campaign)}>编辑人群</button></td></tr>)}</tbody></table>{!campaigns.length && <EmptyFiltered />}</div></section><section className="panel marketing-audience-editor"><div className="business-table-head"><div><h2>人群筛选</h2><p>{selectedCampaign ? `正在编辑：${selectedCampaign.name}` : "来自会员分组详情的条件已自动带入"}</p></div><Pill tone="blue">统一条件</Pill></div><label className="marketing-segment-select"><span>保存回会员分组</span><select value={segmentId} onChange={(event) => chooseSegment(event.target.value)}><option value="">请选择分组</option>{segments.map((segment) => <option value={segment.id} key={segment.id}>{segment.name}</option>)}</select></label><AudienceConditionBuilder conditions={conditions} options={data.audienceOptions} onChange={setConditions} /><div className="marketing-audience-editor__foot"><span>{selectedSegment ? `当前分组：${selectedSegment.name} · ${Number(selectedSegment.members || 0).toLocaleString()} 位会员` : "未选择保存目标"}</span><button className="primary-button" disabled={saving || !segmentId} onClick={save}>{saving ? "保存中..." : "保存到分组"}<IconCheck size={16} /></button></div></section></div></section>;
+}
+
 function DatabaseDomainFeaturePage({ pageId, onToast, data }) {
   const config = FEATURE_PAGE_CONFIG[pageId];
   const FeatureIcon = config.icon;
@@ -1189,16 +1338,17 @@ function DatabaseDomainFeaturePage({ pageId, onToast, data }) {
   );
 }
 
-export function BusinessPageRouter({ activePage, onToast, onAction, data }) {
+export function BusinessPageRouter({ activePage, onToast, onAction, data, onNavigate, navigationState, onDataChanged }) {
   const props = { onToast, onAction, data };
   if (domainConfigs[activePage]) return <DatabaseDomainOverviewPage pageId={activePage} onToast={onToast} data={data} />;
   if (activePage.startsWith("claw-")) return <ClawWorkspacePage activePage={activePage} onToast={onToast} data={data} />;
   if (activePage === "wechat-chat") return <WechatChatPage onToast={onToast} data={data} />;
+  if (activePage === "marketing-campaigns") return <MarketingCampaignsPage onToast={onToast} data={data} navigationState={navigationState} onDataChanged={onDataChanged} />;
   if (FEATURE_PAGE_CONFIG[activePage]) return <DatabaseDomainFeaturePage key={activePage} pageId={activePage} onToast={onToast} data={data} />;
   switch (activePage) {
     case "high-value": return <HighValuePage {...props} />;
     case "logs": return <LogsPage {...props} />;
-    case "segments": return <SegmentsPage {...props} />;
+    case "segments": return <SegmentsPageV2 {...props} onNavigate={onNavigate} onDataChanged={onDataChanged} />;
     case "tags": return <TagsPage {...props} />;
     case "tag-scenes": return <TagScenesPage {...props} />;
     case "tag-logs": return <TagLogsPage {...props} />;
