@@ -13,6 +13,7 @@ MIGRATIONS = (
     os.path.join(ROOT_DIR, "database", "mysql", "04_migrate_audience_conditions.sql"),
     os.path.join(ROOT_DIR, "database", "mysql", "02_seed_demo.sql"),
     os.path.join(ROOT_DIR, "database", "mysql", "03_migrate_claw_action_metadata.sql"),
+    os.path.join(ROOT_DIR, "database", "mysql", "05_seed_page_detail_data.sql"),
 )
 
 
