@@ -5,7 +5,6 @@ import { resolve } from "node:path";
 const root = process.cwd();
 const dist = resolve(root, "dist");
 
-if (!process.env.VITE_API_BASE_URL) process.env.VITE_SITES_PREVIEW = "true";
 await rm(dist, { recursive: true, force: true });
 await build({ configFile: resolve(root, "vite.config.mjs") });
 
@@ -35,7 +34,7 @@ const jsonHeaders = {
   "content-type": "application/json; charset=utf-8",
   "cache-control": "no-store",
   "access-control-allow-origin": "*",
-  "access-control-allow-methods": "POST, OPTIONS",
+  "access-control-allow-methods": "GET, POST, OPTIONS",
   "access-control-allow-headers": "Content-Type",
 };
 
@@ -54,6 +53,24 @@ function responseFor(path) {
 
 function jsonResponse(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: jsonHeaders });
+}
+
+async function handleAppData(request, env) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers: jsonHeaders });
+  if (request.method !== "GET") return jsonResponse({ error: "method_not_allowed", message: "Only GET is supported" }, 405);
+
+  const apiBase = String(env?.CRM_API_BASE_URL || "").replace(/\\/$/, "");
+  if (!apiBase) return jsonResponse({ error: "mysql_api_not_configured", message: "数据库 API 未配置，当前页面不会使用演示数据。请配置 CRM_API_BASE_URL。" }, 503);
+
+  let upstream;
+  try {
+    upstream = await fetch(apiBase + "/api/app-data", { headers: { Accept: "application/json" } });
+  } catch (error) {
+    return jsonResponse({ error: "mysql_api_network_error", message: "无法连接数据库 API：" + error.message }, 502);
+  }
+
+  const body = await upstream.text();
+  return new Response(body, { status: upstream.status, headers: jsonHeaders });
 }
 
 function normalizeKimiContent(content) {
@@ -153,6 +170,7 @@ async function handleKimiChat(request, env) {
 const worker = {
   async fetch(request, env) {
     const url = new URL(request.url);
+    if (url.pathname === "/api/app-data") return handleAppData(request, env);
     if (url.pathname === "/api/kimi/chat") return handleKimiChat(request, env);
     if (env?.ASSETS?.fetch) {
       try {

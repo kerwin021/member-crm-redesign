@@ -48,6 +48,8 @@ Recent completed work:
 - Increased AI assistant width, improved content font sizing, and made the AI insight floating button draggable.
 - Brand text has been unified to 微智.
 - Merged 企业管理 and 开发平台 into 配置管理 to reduce top-level business domains.
+- Audited the full MySQL payload and removed active member, segment, tag, product, and order presentation fallbacks; member detail and order detail now use database fields and explicit empty states.
+- Added `memberCount`, `memberPageSize`, `segmentStats`, `tagStats`, `productStats`, and `orderStats` to `/api/app-data` for source-backed list summaries.
 
 ## How To Continue On Another Codex Device
 

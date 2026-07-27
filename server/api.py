@@ -430,6 +430,7 @@ def load_app_data():
             conn,
             """
             SELECT
+              m.id AS member_pk,
               m.member_no AS id,
               m.name,
               m.phone_mask AS phone,
@@ -440,18 +441,36 @@ def load_app_data():
               m.status,
               COALESCE(mm.total_spend, 0) AS total_spend,
               COALESCE(mm.order_count, 0) AS order_count,
+              COALESCE(mm.avg_order_amount, 0) AS avg_order_amount,
+              COALESCE(mm.growth_value, 0) AS growth_value,
               COALESCE(mm.contribution_score, 0) AS contribution_score,
-              mm.last_order_at
+              mm.last_order_at,
+              COALESCE(pa.available_points, 0) AS available_points
             FROM crm_members m
             LEFT JOIN loyalty_membership_levels l ON l.id = m.level_id
             LEFT JOIN org_stores s ON s.id = m.register_store_id
             LEFT JOIN crm_member_metrics mm ON mm.member_id = m.id
+            LEFT JOIN loyalty_points_accounts pa ON pa.member_id = m.id
             WHERE m.tenant_id = %s
             ORDER BY m.register_at DESC, m.id DESC
             LIMIT 100
             """,
             (tenant_id,),
         )
+        member_tags_by_id = {}
+        member_tag_rows = query_all(
+            conn,
+            """
+            SELECT mt.member_id, t.name
+            FROM crm_member_tags mt
+            JOIN crm_tags t ON t.id = mt.tag_id
+            WHERE mt.tenant_id = %s
+            ORDER BY mt.assigned_at DESC, mt.member_id DESC, mt.tag_id DESC
+            """,
+            (tenant_id,),
+        )
+        for row in member_tag_rows:
+            member_tags_by_id.setdefault(row["member_id"], []).append(row["name"])
         members = [
             {
                 "id": row["id"],
@@ -462,6 +481,14 @@ def load_app_data():
                 "source": row["source"],
                 "date": format_date(row["register_date"]),
                 "status": status_label(row["status"]),
+                "detail": {
+                    "totalSpend": format_money(row["total_spend"]),
+                    "orders": f"{as_int(row['order_count'])} 单",
+                    "points": format_number(row["available_points"]),
+                    "lastPurchase": format_dt(row["last_order_at"]) or "数据库暂无",
+                    "avgOrderAmount": format_money(row["avg_order_amount"]),
+                    "tags": member_tags_by_id.get(row["member_pk"], []),
+                },
             }
             for row in member_rows
         ]
@@ -475,7 +502,8 @@ def load_app_data():
                 "last": format_dt(row["last_order_at"]) or "暂无消费",
                 "store": row["store"],
                 "score": as_int(row["contribution_score"]),
-                "trend": "+0.0%",
+                "trend": f"{as_int(row['growth_value']):+,}",
+                "tags": member_tags_by_id.get(row["member_pk"], []),
             }
             for row in sorted(member_rows, key=lambda item: as_int(item["contribution_score"]), reverse=True)
             if as_int(row["contribution_score"]) > 0
@@ -491,15 +519,35 @@ def load_app_data():
                 "status": bool(row["enabled"]),
                 "updated": format_dt(row["updated_at"], "%m-%d %H:%M") or "暂无更新",
                 "color": COLOR_CYCLE[index % len(COLOR_CYCLE)],
+                "rules": parse_json_value(row["rule_json"], {}) or {},
+                "refreshed": format_dt(row["refreshed_at"], "%m-%d %H:%M") or "数据库暂无",
             }
             for index, row in enumerate(
                 query_all(
                     conn,
-                    "SELECT id, name, description, member_count, segment_type, enabled, updated_at FROM crm_segments WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
+                    "SELECT id, name, description, member_count, segment_type, enabled, rule_json, refreshed_at, updated_at FROM crm_segments WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
                     (tenant_id,),
                 )
             )
         ]
+        segment_stats_row = query_one(
+            conn,
+            """
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(enabled = 1), 0) AS enabled_total,
+                   COALESCE(SUM(member_count), 0) AS covered_members,
+                   COALESCE(SUM(updated_at >= CURRENT_DATE), 0) AS updated_today
+            FROM crm_segments
+            WHERE tenant_id = %s
+            """,
+            (tenant_id,),
+        ) or {}
+        segment_stats = {
+            "total": as_int(segment_stats_row.get("total")),
+            "enabled": as_int(segment_stats_row.get("enabled_total")),
+            "coveredMembers": as_int(segment_stats_row.get("covered_members")),
+            "updatedToday": as_int(segment_stats_row.get("updated_today")),
+        }
 
         tags = [
             {
@@ -508,6 +556,7 @@ def load_app_data():
                 "category": row["category"],
                 "coverage": as_int(row["coverage_count"]),
                 "rules": as_int(row["rules_count"]),
+                "rulesData": parse_json_value(row["rules_json"], {}) or {},
                 "updated": format_dt(row["updated_at"], "%m-%d %H:%M") or "暂无更新",
                 "color": row["color"] or COLOR_CYCLE[index % len(COLOR_CYCLE)],
                 "enabled": bool(row["enabled"]),
@@ -517,6 +566,7 @@ def load_app_data():
                     conn,
                     """
                     SELECT id, name, category, color, enabled, coverage_count,
+                           rules_json,
                            COALESCE(JSON_LENGTH(rules_json), 0) AS rules_count,
                            updated_at
                     FROM crm_tags
@@ -527,6 +577,24 @@ def load_app_data():
                 )
             )
         ]
+        tag_stats_row = query_one(
+            conn,
+            """
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(enabled = 1), 0) AS enabled_total,
+                   COALESCE(SUM(coverage_count), 0) AS coverage_total,
+                   COALESCE(SUM(JSON_LENGTH(rules_json) > 0), 0) AS rule_tag_total
+            FROM crm_tags
+            WHERE tenant_id = %s
+            """,
+            (tenant_id,),
+        ) or {}
+        tag_stats = {
+            "total": as_int(tag_stats_row.get("total")),
+            "enabled": as_int(tag_stats_row.get("enabled_total")),
+            "coverage": as_int(tag_stats_row.get("coverage_total")),
+            "ruleTags": as_int(tag_stats_row.get("rule_tag_total")),
+        }
 
         products = [
             {
@@ -538,18 +606,37 @@ def load_app_data():
                 "sales": as_int(row["sales_qty"]),
                 "status": bool(row["enabled"]),
                 "updated": format_dt(row["updated_at"], "%m-%d %H:%M"),
+                "created": format_dt(row["created_at"], "%Y-%m-%d"),
             }
             for row in query_all(
                 conn,
-                "SELECT product_no, name, category, price, stock_qty, sales_qty, enabled, updated_at FROM catalog_products WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
+                "SELECT product_no, name, category, price, stock_qty, sales_qty, enabled, created_at, updated_at FROM catalog_products WHERE tenant_id = %s ORDER BY updated_at DESC, id DESC",
                 (tenant_id,),
             )
         ]
+        product_stats_row = query_one(
+            conn,
+            """
+            SELECT COUNT(*) AS total,
+                   COALESCE(SUM(enabled = 1), 0) AS enabled_total,
+                   COALESCE(SUM(stock_qty < 100), 0) AS low_stock,
+                   COALESCE(SUM(sales_qty > 0), 0) AS selling_total
+            FROM catalog_products
+            WHERE tenant_id = %s
+            """,
+            (tenant_id,),
+        ) or {}
+        product_stats = {
+            "total": as_int(product_stats_row.get("total")),
+            "enabled": as_int(product_stats_row.get("enabled_total")),
+            "lowStock": as_int(product_stats_row.get("low_stock")),
+            "selling": as_int(product_stats_row.get("selling_total")),
+        }
 
         order_rows = query_all(
             conn,
             """
-            SELECT o.order_no AS id, COALESCE(m.name, '-') AS member, o.paid_amount AS amount,
+            SELECT o.id AS order_pk, o.order_no AS id, COALESCE(m.name, '-') AS member, o.paid_amount AS amount,
                    o.item_count AS items, o.channel, COALESCE(s.name, '-') AS store,
                    o.status, o.ordered_at
             FROM sales_orders o
@@ -571,9 +658,69 @@ def load_app_data():
                 "store": row["store"],
                 "status": order_status_label(row["status"]),
                 "time": format_dt(row["ordered_at"]),
+                "itemsDetail": [],
             }
             for row in order_rows
         ]
+        items_by_order_id = {}
+        for row in query_all(
+            conn,
+            """
+            SELECT i.order_id, i.product_name, i.unit_price, i.quantity, i.line_amount
+            FROM sales_order_items i
+            JOIN sales_orders o ON o.id = i.order_id
+            WHERE o.tenant_id = %s
+            ORDER BY i.order_id, i.id
+            """,
+            (tenant_id,),
+        ):
+            items_by_order_id.setdefault(row["order_id"], []).append(
+                {
+                    "name": row["product_name"],
+                    "unitPrice": as_float(row["unit_price"]),
+                    "quantity": as_int(row["quantity"]),
+                    "amount": as_float(row["line_amount"]),
+                }
+            )
+        for order, row in zip(orders, order_rows):
+            order["itemsDetail"] = items_by_order_id.get(row["order_pk"], [])
+
+        latest_order_day_row = query_one(
+            conn,
+            "SELECT DATE(MAX(ordered_at)) AS latest_day FROM sales_orders WHERE tenant_id = %s",
+            (tenant_id,),
+        ) or {}
+        latest_order_day = latest_order_day_row.get("latest_day")
+        latest_order_stats = {"orders": 0, "amount": 0, "latest_day": latest_order_day}
+        if latest_order_day:
+            latest_order_stats = query_one(
+                conn,
+                """
+                SELECT COUNT(*) AS orders, COALESCE(SUM(paid_amount), 0) AS amount
+                FROM sales_orders
+                WHERE tenant_id = %s AND DATE(ordered_at) = %s
+                """,
+                (tenant_id, latest_order_day),
+            ) or latest_order_stats
+            latest_order_stats["latest_day"] = latest_order_day
+        order_stats_row = query_one(
+            conn,
+            """
+            SELECT COALESCE(SUM(status IN ('pending_ship', 'shipping')), 0) AS pending_fulfillment,
+                   COALESCE(SUM(status = 'refunding'), 0) AS after_sales
+            FROM sales_orders
+            WHERE tenant_id = %s
+            """,
+            (tenant_id,),
+        ) or {}
+        order_stats = {
+            "latestDate": format_date(latest_order_stats.get("latest_day")) if latest_order_stats.get("latest_day") else "数据库暂无",
+            "latestOrders": as_int(latest_order_stats.get("orders")),
+            "latestAmount": as_float(latest_order_stats.get("amount")),
+            "pendingFulfillment": as_int(order_stats_row.get("pending_fulfillment")),
+            "afterSales": as_int(order_stats_row.get("after_sales")),
+            "total": as_int(query_one(conn, "SELECT COUNT(*) AS total FROM sales_orders WHERE tenant_id = %s", (tenant_id,))["total"]),
+        }
 
         log_rows = [
             {
@@ -862,6 +1009,15 @@ def load_app_data():
                     "updated": format_dt(row["updated_at"], "%m-%d %H:%M"),
                 }
             )
+        feature_page_stats = {
+            page_id: {
+                "total": len(records),
+                "enabled": sum(1 for record in records if record["enabled"]),
+                "running": sum(1 for record in records if record["status"] == "运行中"),
+                "review": sum(1 for record in records if record["status"] == "待审核"),
+            }
+            for page_id, records in feature_pages.items()
+        }
 
         ltv_rows = query_all(
             conn,
@@ -1137,13 +1293,19 @@ def load_app_data():
                 },
             },
             "members": members,
+            "memberCount": total_members,
+            "memberPageSize": 100,
             "highValueMembers": high_value_members,
             "logRows": log_rows,
             "segments": segments,
+            "segmentStats": segment_stats,
             "tags": tags,
+            "tagStats": tag_stats,
             "tagLogRows": tag_log_rows,
             "products": products,
+            "productStats": product_stats,
             "orders": orders,
+            "orderStats": order_stats,
             "wechatConversations": conversations,
             "wechatMessages": messages,
             "clawInsightCards": claw_insights,
@@ -1186,6 +1348,7 @@ def load_app_data():
             "tagScenes": tag_scenes,
             "ltvModel": ltv_model,
             "featurePages": feature_pages,
+            "featurePageStats": feature_page_stats,
             "domainOverviews": domain_overviews,
             "insights": insights,
             "clawToolEntrances": ui_datasets.get("claw_tool_entrances", []),

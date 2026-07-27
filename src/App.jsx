@@ -449,7 +449,7 @@ function MembersPage({ onToast, onAction, data }) {
           </table>
           {!visible.length && <div className="empty-state"><IconUsers size={38} /><strong>没有匹配的会员</strong><p>调整筛选条件后再试一次</p></div>}
         </div>
-        <div className="table-footer"><span>已选择 <strong>{selected.length}</strong> 项</span><div><button disabled><IconChevronLeft size={16} /></button><button className="is-current">1</button><button>2</button><button>3</button><button><IconChevronRight size={16} /></button></div><span>10 条 / 页</span></div>
+        <div className="table-footer"><span>已选择 <strong>{selected.length}</strong> 项</span><span>已加载 {memberRows.length} / {data.memberCount ?? memberRows.length} 条</span><span>{data.memberPageSize ?? memberRows.length} 条 / 页</span></div>
       </section>
       <Drawer
         open={!!selectedMember}
@@ -463,9 +463,9 @@ function MembersPage({ onToast, onAction, data }) {
           <div><strong>{selectedMember?.name}</strong><p>{selectedMember?.level} · {selectedMember?.store} · {selectedMember?.status}</p></div>
         </div>
         <div className="drawer-metrics">
-          <div><small>累计消费</small><strong>{selectedMember?.detail?.totalSpend || "¥6,860"}</strong></div>
-          <div><small>累计订单</small><strong>{selectedMember?.detail?.orders || "18 单"}</strong></div>
-          <div><small>当前积分</small><strong>{selectedMember?.detail?.points || "8,620"}</strong></div>
+          <div><small>累计消费</small><strong>{selectedMember?.detail?.totalSpend || "数据库暂无"}</strong></div>
+          <div><small>累计订单</small><strong>{selectedMember?.detail?.orders || "数据库暂无"}</strong></div>
+          <div><small>当前积分</small><strong>{selectedMember?.detail?.points || "数据库暂无"}</strong></div>
         </div>
         <h3>基础资料</h3>
         <div className="detail-list">
@@ -474,7 +474,7 @@ function MembersPage({ onToast, onAction, data }) {
           <div><span>归属门店</span><strong>{selectedMember?.store}</strong></div>
           <div><span>注册来源</span><strong>{selectedMember?.source}</strong></div>
           <div><span>注册日期</span><strong>{selectedMember?.date}</strong></div>
-          <div><span>最近消费</span><strong>{selectedMember?.detail?.lastPurchase || "3 天前"}</strong></div>
+          <div><span>最近消费</span><strong>{selectedMember?.detail?.lastPurchase || "数据库暂无"}</strong></div>
         </div>
         <h3>会员标签</h3>
         <div className="tag-cloud">
@@ -482,11 +482,8 @@ function MembersPage({ onToast, onAction, data }) {
         </div>
         <h3>近期动态</h3>
         <div className="log-timeline">
-          {(selectedMember?.detail?.events || [
-            { title: "会员资料已同步", note: `${selectedMember?.date} · ${selectedMember?.source}` },
-            { title: "最近一次消费完成", note: `${selectedMember?.detail?.lastPurchase || "3 天前"} · ${selectedMember?.store}` },
-            { title: "会员价值评分已更新", note: "今天 09:30 · 系统自动" },
-          ]).map((event) => <div key={`${event.title}-${event.note}`}><i /><strong>{event.title}</strong><small>{event.note}</small></div>)}
+          {(selectedMember?.detail?.events || []).map((event) => <div key={`${event.title}-${event.note}`}><i /><strong>{event.title}</strong><small>{event.note}</small></div>)}
+          {!selectedMember?.detail?.events?.length && <div><i /><strong>数据库暂无近期动态</strong><small>当前会员没有可展示的日志记录</small></div>}
         </div>
       </Drawer>
     </section>
@@ -661,7 +658,7 @@ export function App() {
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
-  if ((dataStatus !== "live" && dataStatus !== "preview") || !appData) {
+  if (dataStatus !== "live" || !appData) {
     return <DatabaseState status={dataStatus} error={dataError} onRetry={reloadData} />;
   }
 

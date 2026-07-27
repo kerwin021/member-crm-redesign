@@ -64,6 +64,13 @@ pnpm dev
 
 本地 Vite 已代理 `/api` 到 `http://127.0.0.1:8787`。线上部署时必须在宝塔中把站点的 `/api` 反向代理到 API 进程，或构建前设置 `VITE_API_BASE_URL` 指向公开的 HTTPS API 地址。纯静态 GitHub Pages 未配置 API 时只会显示数据库连接失败状态。
 
+### 真实数据检查（2026-07-27）
+
+- 会员列表和详情使用 `crm_members`、`crm_member_metrics`、`loyalty_points_accounts` 及会员标签关联表的数据库结果；缺少记录时显示“数据库暂无”。
+- 分群、标签、商品、订单及订单商品明细分别读取对应 MySQL 表，并由 API 返回真实统计字段；前端不再显示固定演示统计或固定商品明细。
+- 业务域概览、功能页、洞察、微信会话、Claw 和 LTV 均继续通过 `/api/app-data` 返回，API 失败时显示数据库连接错误，不回退到前端静态数据。
+- API 响应包含 `meta.source = "mysql"`、`memberCount`、`segmentStats`、`tagStats`、`productStats` 和 `orderStats`，便于部署后核验数据源。
+
 启用 Kimi 智能问答需要在服务端环境中配置：
 
 ```bash
